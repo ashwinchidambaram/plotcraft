@@ -1,7 +1,7 @@
 from __future__ import annotations
 import math
 from dataclasses import dataclass
-from plotcraft.types import Point, Size, BBox, PlacementError
+from plotcraft.types import Point, Size, BBox, PlacementError, ShapeKind
 from plotcraft.shapes import Shape
 
 
@@ -31,13 +31,18 @@ class Grid:
         self._occupied: set[tuple[int, int]] = set()  # (row, col) cells taken
 
     def place(self, shape: Shape, row: int, col: int) -> Placement:
-        """Place shape at (row, col). Raises PlacementError if cells occupied."""
+        """Place shape at (row, col). Raises PlacementError if cells occupied.
+        Note: ShapeKind.NONE shapes are free-floating and don't occupy cells."""
         row_span, col_span = self._cells_needed(shape)
-        if not self._check_available(row, col, row_span, col_span):
-            raise PlacementError(
-                f"Cannot place shape '{shape.id}' at ({row}, {col}): cells occupied"
-            )
-        self._claim_cells(row, col, row_span, col_span)
+
+        # Only check/claim cells for non-NONE shapes
+        if shape.kind != ShapeKind.NONE:
+            if not self._check_available(row, col, row_span, col_span):
+                raise PlacementError(
+                    f"Cannot place shape '{shape.id}' at ({row}, {col}): cells occupied"
+                )
+            self._claim_cells(row, col, row_span, col_span)
+
         placement = self._create_placement(shape, row, col, row_span, col_span)
         self._placements[shape.id] = placement
         return placement
