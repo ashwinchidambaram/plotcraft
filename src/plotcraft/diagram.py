@@ -1,7 +1,7 @@
 from __future__ import annotations
 from plotcraft.types import (
     TextRole, ShapeKind, TextAlign, AnchorName, ArrowDirection, SectionStyle, BBox, ColorTheme,
-    ConnectorStyle, LineWeight,
+    ConnectorStyle, LineWeight, RoutingStyle,
     TimelineEntry, TimelineOrientation, TreeNode,
 )
 from plotcraft.grid import Grid, GridConfig
@@ -15,14 +15,20 @@ from plotcraft.wobble import Wobbler, WobbleConfig
 class Diagram:
     """The single entry point for building diagrams."""
 
-    def __init__(self, grid_config: GridConfig | None = None):
+    def __init__(
+        self,
+        grid_config: GridConfig | None = None,
+        routing: RoutingStyle = RoutingStyle.ORTHOGONAL,
+        wobble_config: WobbleConfig | None = None,
+    ):
         self._grid = Grid(grid_config or GridConfig())
         self._shapes: dict[str, object] = {}  # shape_id -> Shape (tracked for validation)
         self._connectors: list[object] = []  # list of Connector stubs
         self._sections: list[dict] = []  # list of {label, shape_ids, style}
         self._timelines: list[dict] = []
         self._trees: list[dict] = []
-        self._wobbler = Wobbler(WobbleConfig())
+        self._routing = routing
+        self._wobbler = Wobbler(wobble_config or WobbleConfig())
         self._renderer = SvgRenderer(wobbler=self._wobbler)
 
     def add(
@@ -126,7 +132,7 @@ class Diagram:
         placements = self._grid.all_placements()
         placements_dict = {p.shape.id: p for p in placements}
 
-        routed = route_all(self._connectors, placements_dict)
+        routed = route_all(self._connectors, placements_dict, routing=self._routing)
 
         # Compute section bounds
         sections = []
@@ -192,7 +198,13 @@ class Diagram:
         webbrowser.open(f"file://{path}")
 
     def save(self, path: str, scale: float = 2.0) -> None:
-        """Render and write to file. Detects format from extension (.svg or .png)."""
+        """Render and write to file. Detects format from extension (.svg, .png, .drawio)."""
+        if path.lower().endswith(".drawio"):
+            xml = self.render_drawio()
+            with open(path, "w") as f:
+                f.write(xml)
+            return
+
         svg = self.render()
         if path.lower().endswith(".png"):
             import os
@@ -207,3 +219,78 @@ class Diagram:
         else:
             with open(path, "w") as f:
                 f.write(svg)
+
+    def render_drawio(self) -> str:
+        """Generate .drawio XML representation of the diagram.
+
+        This produces a draw.io-compatible XML file that can be opened
+        in the draw.io desktop app or web editor for further editing.
+        """
+        from plotcraft.drawio_renderer import render_drawio_xml
+        placements = self._grid.all_placements()
+        placements_dict = {p.shape.id: p for p in placements}
+
+        # Compute section bounds (same logic as render())
+        sections = []
+        for sec in self._sections:
+            style: SectionStyle = sec["style"]
+            padding = style.padding
+            label_height = style.label_font_size + 10.0
+            min_x = float("inf")
+            min_y = float("inf")
+            max_x = float("-inf")
+            max_y = float("-inf")
+            for sid in sec["shape_ids"]:
+                p = placements_dict[sid]
+                bb = p.bounding_box
+                min_x = min(min_x, bb.x)
+                min_y = min(min_y, bb.y)
+                max_x = max(max_x, bb.x + bb.width)
+                max_y = max(max_y, bb.y + bb.height)
+            bounds = BBox(
+                x=min_x - padding,
+                y=min_y - padding - label_height,
+                width=(max_x - min_x) + 2 * padding,
+                height=(max_y - min_y) + 2 * padding + label_height,
+            )
+            sections.append((sec["label"], bounds, style))
+
+        canvas_size = self._grid.canvas_size()
+        return render_drawio_xml(
+            placements, self._connectors, canvas_size, sections,
+        )
+
+    def open(self) -> None:
+        """Open the diagram in draw.io desktop app (if installed)."""
+        import tempfile
+        import subprocess
+        import shutil
+
+        xml = self.render_drawio()
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".drawio", prefix="plotcraft_", delete=False,
+        ) as f:
+            f.write(xml)
+            path = f.name
+
+        # Try to open with draw.io
+        drawio_paths = [
+            "/Applications/draw.io.app/Contents/MacOS/draw.io",
+            shutil.which("drawio"),
+        ]
+        for drawio in drawio_paths:
+            if drawio:
+                try:
+                    subprocess.Popen([drawio, path])
+                    return
+                except OSError:
+                    continue
+
+        # Fallback: open with system default
+        import sys
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+        elif sys.platform == "linux":
+            subprocess.Popen(["xdg-open", path])
+        else:
+            print(f"Saved .drawio file to: {path}")
