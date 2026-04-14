@@ -7,9 +7,9 @@ from plotcraft.shapes import Shape
 
 @dataclass(frozen=True)
 class GridConfig:
-    cell_width: float = 250.0
-    cell_height: float = 150.0
-    margin: float = 20.0  # margin around shape within bounding box
+    cell_width: float = 160.0
+    cell_height: float = 120.0
+    margin: float = 24.0  # margin around shape within bounding box
 
 
 @dataclass(frozen=True)
