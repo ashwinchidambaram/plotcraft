@@ -61,15 +61,16 @@ SHAPE_STYLE_MAP: dict[ShapeKind, str] = {
 # ---------------------------------------------------------------------------
 
 BACKGROUND_COLOR = "#fdf6e3"
-CANVAS_PADDING = 80  # extra padding around the diagram content
+CANVAS_PADDING = 60  # extra padding around the diagram content
 
-# Draw.io needs more space between elements than PlotCraft's tight grid.
-# This multiplier scales all coordinates so the router has room to work.
-SPACING_SCALE = 1.8  # 1.0 = PlotCraft native, 1.8 = roomy for draw.io
+# Draw.io needs gaps between shapes for clean arrow routing.
+# Instead of scaling all coords (which distorts proportions),
+# we add a fixed gap per grid cell so there's routing space.
+CELL_GAP_X = 40  # extra horizontal px per grid column
+CELL_GAP_Y = 30  # extra vertical px per grid row
 
 # How far connectors extend from shapes before turning (in px).
-# Larger values prevent arrows from hugging shapes too tightly.
-JETTY_SIZE = 20
+JETTY_SIZE = 16
 
 
 def _fmt(v: float) -> str:
@@ -125,9 +126,10 @@ def _shape_cell(placement: Placement) -> str:
 
     cell_id = f"shape_{shape.id}"
     value = escape(shape.text)
-    # Apply spacing scale to positions so draw.io has room to route arrows
-    x = _fmt(placement.position.x * SPACING_SCALE + CANVAS_PADDING)
-    y = _fmt(placement.position.y * SPACING_SCALE + CANVAS_PADDING)
+    # Add per-cell gaps so draw.io has room to route arrows between shapes.
+    # Each grid column adds CELL_GAP_X, each row adds CELL_GAP_Y.
+    x = _fmt(placement.position.x + placement.col * CELL_GAP_X + CANVAS_PADDING)
+    y = _fmt(placement.position.y + placement.row * CELL_GAP_Y + CANVAS_PADDING)
     w = _fmt(shape.content_bbox.width)
     h = _fmt(shape.content_bbox.height)
 
@@ -228,11 +230,17 @@ def _section_cells(index: int, label: str, bounds: BBox, style: SectionStyle) ->
     color = style.label_color
     padding = style.padding
 
-    # Apply same spacing scale as shapes so sections align
-    x = _fmt(bounds.x * SPACING_SCALE + CANVAS_PADDING)
-    y = _fmt(bounds.y * SPACING_SCALE + CANVAS_PADDING)
-    w = _fmt(bounds.width * SPACING_SCALE)
-    h = _fmt(bounds.height * SPACING_SCALE)
+    # Sections need the same gap-based offset as shapes.
+    # Estimate the column/row range from bounds position.
+    # bounds.x / cell_width gives approximate column.
+    approx_col = max(0, int(bounds.x / 260)) if bounds.x > 0 else 0
+    approx_row = max(0, int(bounds.y / 160)) if bounds.y > 0 else 0
+    approx_col_end = max(0, int((bounds.x + bounds.width) / 260))
+    approx_row_end = max(0, int((bounds.y + bounds.height) / 160))
+    x = _fmt(bounds.x + approx_col * CELL_GAP_X + CANVAS_PADDING)
+    y = _fmt(bounds.y + approx_row * CELL_GAP_Y + CANVAS_PADDING)
+    w = _fmt(bounds.width + (approx_col_end - approx_col) * CELL_GAP_X)
+    h = _fmt(bounds.height + (approx_row_end - approx_row) * CELL_GAP_Y)
 
     bg_style = (
         f"rounded=1;dashed=1;dashPattern=8 4;"
@@ -245,8 +253,8 @@ def _section_cells(index: int, label: str, bounds: BBox, style: SectionStyle) ->
     )
 
     # Label positioned inside the top-left of the section box
-    lx = _fmt(bounds.x * SPACING_SCALE + CANVAS_PADDING + padding)
-    ly = _fmt(bounds.y * SPACING_SCALE + CANVAS_PADDING + 4)
+    lx = _fmt(bounds.x + approx_col * CELL_GAP_X + CANVAS_PADDING + padding)
+    ly = _fmt(bounds.y + approx_row * CELL_GAP_Y + CANVAS_PADDING + 4)
     lbl_value = escape(label)
 
     lines = [
@@ -279,8 +287,11 @@ def render_drawio_xml(
     """
     sections = sections or []
 
-    page_width = int(canvas_size.width * SPACING_SCALE) + CANVAS_PADDING * 2
-    page_height = int(canvas_size.height * SPACING_SCALE) + CANVAS_PADDING * 2
+    # Estimate max column/row from canvas size for gap calculation
+    max_cols = max(1, int(canvas_size.width / 260)) + 1
+    max_rows = max(1, int(canvas_size.height / 160)) + 1
+    page_width = int(canvas_size.width) + max_cols * CELL_GAP_X + CANVAS_PADDING * 2
+    page_height = int(canvas_size.height) + max_rows * CELL_GAP_Y + CANVAS_PADDING * 2
 
     # Build a lookup for connectors to resolve stroke colours
     placements_dict: dict[str, Placement] = {p.shape.id: p for p in placements}
