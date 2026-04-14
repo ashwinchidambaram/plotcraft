@@ -9,6 +9,7 @@ from plotcraft.types import (
 )
 from plotcraft.diagram import Diagram
 from plotcraft.grid import GridConfig
+from plotcraft.wobble import WobbleConfig
 
 __all__ = [
     "Diagram",
@@ -25,4 +26,5 @@ __all__ = [
     "TimelineOrientation",
     "TimelineEntry",
     "TreeNode",
+    "WobbleConfig",
 ]

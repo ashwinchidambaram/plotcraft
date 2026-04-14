@@ -49,17 +49,16 @@ def test_all_shape_kinds():
     root = ET.fromstring(svg)
     ns = {"svg": "http://www.w3.org/2000/svg"}
 
-    # Should have rect, circle, ellipse elements
-    # (rect appears for background + RECT shape + SQUARE shape)
-    rects = root.findall(".//svg:rect", ns)
-    circles = root.findall(".//svg:circle", ns)
-    ellipses = root.findall(".//svg:ellipse", ns)
+    # Wobble engine renders all shapes as wobbly <path> elements.
+    # Verify each shape's label text is present and there are shape groups.
+    assert "Rectangle" in svg
+    assert "Square" in svg
+    assert "Circle" in svg
+    assert "Oval" in svg
 
-    assert len(circles) >= 1
-    assert len(ellipses) >= 1
-    # At least 2 rects with rounded corners (RECT + SQUARE) plus background
-    shape_rects = [r for r in rects if r.get("rx") is not None]
-    assert len(shape_rects) >= 2
+    # Each shape is wrapped in a <g id="shape-*"> group
+    shape_groups = [g for g in root.findall(".//svg:g", ns) if (g.get("id") or "").startswith("shape-")]
+    assert len(shape_groups) >= 4
 
 
 def test_all_text_roles():

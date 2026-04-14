@@ -131,9 +131,12 @@ def test_all_shape_kinds_in_diagram():
     d.add("oval", "Oval", shape=ShapeKind.OVAL)
     svg = d.render()
 
-    assert "<rect" in svg
-    assert "<circle" in svg
-    assert "<ellipse" in svg
+    # Wobble engine renders all shapes as <path> elements.
+    # Verify each shape's text label is present and the SVG is valid.
+    assert "Rectangle" in svg
+    assert "Square" in svg
+    assert "Circle" in svg
+    assert "Oval" in svg
     ET.fromstring(svg)
 
 

@@ -9,6 +9,7 @@ from plotcraft.shapes import create_shape
 from plotcraft.connectors import create_connector, route_all
 from plotcraft.svg import SvgRenderer
 from plotcraft.structures import build_timeline, build_tree
+from plotcraft.wobble import Wobbler, WobbleConfig
 
 
 class Diagram:
@@ -21,7 +22,8 @@ class Diagram:
         self._sections: list[dict] = []  # list of {label, shape_ids, style}
         self._timelines: list[dict] = []
         self._trees: list[dict] = []
-        self._renderer = SvgRenderer()
+        self._wobbler = Wobbler(WobbleConfig())
+        self._renderer = SvgRenderer(wobbler=self._wobbler)
 
     def add(
         self,
@@ -119,6 +121,8 @@ class Diagram:
 
     def render(self) -> str:
         """Finalize layout, route connectors, return SVG string."""
+        # Reset wobble RNG so repeated render() calls produce identical output.
+        self._wobbler._rng.seed(self._wobbler._config.seed)
         placements = self._grid.all_placements()
         placements_dict = {p.shape.id: p for p in placements}
 
@@ -158,10 +162,12 @@ class Diagram:
             structure_fragments.append(build_timeline(
                 tl["entries"], tl["orientation"],
                 tl["start_row"], tl["start_col"], grid_config,
+                wobbler=self._wobbler,
             ))
         for tr in self._trees:
             structure_fragments.append(build_tree(
                 tr["root"], tr["start_row"], tr["start_col"], grid_config,
+                wobbler=self._wobbler,
             ))
 
         canvas_size = self._grid.canvas_size()
