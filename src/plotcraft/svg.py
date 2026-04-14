@@ -1,22 +1,25 @@
 from __future__ import annotations
-from plotcraft.types import ShapeKind, TextAlign, ArrowDirection, Size, Point, BBox, TEXT_STYLE_DEFAULTS, COLOR_DEFAULTS, ConnectorStyle, LINE_WEIGHT_WIDTHS, SectionStyle
+from plotcraft.types import ShapeKind, TextAlign, ArrowDirection, Size, Point, BBox, TEXT_STYLE_DEFAULTS, COLOR_DEFAULTS, ConnectorStyle, LINE_WEIGHT_WIDTHS, SectionStyle, TextRole
 from plotcraft.grid import Placement
 from plotcraft.connectors import Connector
+from plotcraft.wobble import Wobbler
 
 
 _CORNER_RADIUS = 8.0
 _SHAPE_FILL = "#f8f9fa"
 _SHAPE_STROKE = "#333333"
-_SHAPE_STROKE_WIDTH = 1.5
+_SHAPE_STROKE_WIDTH = 2.0
 _TEXT_COLOR = "#222222"
 _CONNECTOR_COLOR = "#555555"
-_CONNECTOR_WIDTH = 1.5
-_CANVAS_PADDING = 20.0
+_CONNECTOR_WIDTH = 2.0
+_CANVAS_PADDING = 24.0
+_CANVAS_COLOR = "#fdf6e3"
 
 
 class SvgRenderer:
-    def __init__(self, background: str = "#ffffff"):
+    def __init__(self, background: str = _CANVAS_COLOR, wobbler: Wobbler | None = None):
         self._background = background
+        self._wobbler = wobbler
 
     def render_diagram(
         self,
@@ -36,8 +39,13 @@ class SvgRenderer:
             f'viewBox="0 0 {w} {h}" width="{w}" height="{h}">'
         )
 
-        # Defs (arrowhead markers)
+        # Defs (Google Fonts + arrowhead markers)
         parts.append("  <defs>")
+        parts.append(
+            "    <style>\n"
+            "      @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;family=Indie+Flower&amp;display=swap');\n"
+            "    </style>"
+        )
         parts.append(self._arrowhead_marker())
         parts.append(self._arrowhead_marker_start())
         parts.append("  </defs>")
@@ -82,6 +90,7 @@ class SvgRenderer:
         palette = COLOR_DEFAULTS[shape.color_theme]
         fill = palette.fill
         stroke = palette.stroke
+        fill_opacity = palette.fill_opacity
 
         parts = []
         parts.append(f'    <g id="shape-{shape.id}">')
@@ -92,7 +101,7 @@ class SvgRenderer:
         elif shape.kind == ShapeKind.RECT or shape.kind == ShapeKind.SQUARE:
             parts.append(self._render_rect(
                 BBox(pos.x, pos.y, shape.content_bbox.width, shape.content_bbox.height),
-                fill=fill, stroke=stroke,
+                fill=fill, stroke=stroke, fill_opacity=fill_opacity,
             ))
         elif shape.kind == ShapeKind.CIRCLE:
             center = Point(
@@ -100,11 +109,11 @@ class SvgRenderer:
                 pos.y + shape.content_bbox.height / 2,
             )
             radius = shape.content_bbox.width / 2
-            parts.append(self._render_circle(center, radius, fill=fill, stroke=stroke))
+            parts.append(self._render_circle(center, radius, fill=fill, stroke=stroke, fill_opacity=fill_opacity))
         elif shape.kind == ShapeKind.DIAMOND:
             parts.append(self._render_diamond(
                 BBox(pos.x, pos.y, shape.content_bbox.width, shape.content_bbox.height),
-                fill=fill, stroke=stroke,
+                fill=fill, stroke=stroke, fill_opacity=fill_opacity,
             ))
         elif shape.kind == ShapeKind.OVAL:
             center = Point(
@@ -113,7 +122,7 @@ class SvgRenderer:
             )
             rx = shape.content_bbox.width / 2
             ry = shape.content_bbox.height / 2
-            parts.append(self._render_ellipse(center, rx, ry, fill=fill, stroke=stroke))
+            parts.append(self._render_ellipse(center, rx, ry, fill=fill, stroke=stroke, fill_opacity=fill_opacity))
 
         # Draw the text (always vertically centered, horizontal per shape.align)
         text_center = Point(
@@ -132,7 +141,14 @@ class SvgRenderer:
         """SVG path for a connector with arrowhead and optional label."""
         import math
         parts = []
-        path_d = self._render_bezier_path(connector.path_points)
+
+        # Apply wobble to control points when wobbler is available
+        if self._wobbler:
+            path_points = self._wobbler.wobble_bezier_points(connector.path_points)
+        else:
+            path_points = connector.path_points
+
+        path_d = self._render_bezier_path(path_points)
 
         # Build marker attributes based on direction
         direction = getattr(connector, 'direction', ArrowDirection.FORWARD)
@@ -162,8 +178,8 @@ class SvgRenderer:
 
         # Render label offset perpendicular to the line at the midpoint
         if connector.label and len(connector.path_points) >= 2:
-            mid = self._bezier_midpoint(connector.path_points)
-            tangent = self._bezier_tangent(connector.path_points)
+            mid = self._bezier_midpoint(path_points)
+            tangent = self._bezier_tangent(path_points)
 
             # Perpendicular to tangent (rotate 90° CCW → label goes "above/left")
             length = math.sqrt(tangent.x ** 2 + tangent.y ** 2) or 1.0
@@ -180,42 +196,72 @@ class SvgRenderer:
             # Approximate label width: ~7px per char at font-size 12
             approx_w = len(connector.label) * 7.0 + 8
             approx_h = 16.0
+            body_font = TEXT_STYLE_DEFAULTS[TextRole.BODY].font_family
             parts.append(
                 f'    <rect x="{label_x - approx_w / 2}" y="{label_y - approx_h / 2}" '
                 f'width="{approx_w}" height="{approx_h}" rx="3" ry="3" '
-                f'fill="white" stroke="none" />'
+                f'fill="{_CANVAS_COLOR}" stroke="none" />'
             )
             parts.append(
                 f'    <text x="{label_x}" y="{label_y}" '
                 f'text-anchor="middle" dominant-baseline="central" '
-                f'font-family="Arial" font-size="12" '
+                f'font-family="{body_font}" font-size="12" '
                 f'fill="{_TEXT_COLOR}">{label_text}</text>'
             )
 
         return "\n".join(parts)
 
     def _render_rect(self, bbox: BBox, rx: float = _CORNER_RADIUS,
-                     fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE) -> str:
+                     fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE,
+                     fill_opacity: float = 1.0) -> str:
+        opacity_attr = f' fill-opacity="{fill_opacity}"' if fill_opacity != 1.0 else f' fill-opacity="{fill_opacity}"'
+        if self._wobbler:
+            d = self._wobbler.wobble_rect(bbox.x, bbox.y, bbox.width, bbox.height, rx)
+            return (
+                f'      <path d="{d}" '
+                f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
+                f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
+            )
         return (
             f'      <rect x="{bbox.x}" y="{bbox.y}" '
             f'width="{bbox.width}" height="{bbox.height}" '
             f'rx="{rx}" ry="{rx}" '
-            f'fill="{fill}" stroke="{stroke}" '
+            f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
             f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
         )
 
     def _render_circle(self, center: Point, radius: float,
-                       fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE) -> str:
+                       fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE,
+                       fill_opacity: float = 1.0) -> str:
+        opacity_attr = f' fill-opacity="{fill_opacity}"'
+        if self._wobbler:
+            d = self._wobbler.wobble_circle(center.x, center.y, radius)
+            return (
+                f'      <path d="{d}" '
+                f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
+                f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
+            )
         return (
             f'      <circle cx="{center.x}" cy="{center.y}" r="{radius}" '
-            f'fill="{fill}" stroke="{stroke}" '
+            f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
             f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
         )
 
     def _render_diamond(self, bbox: BBox,
-                        fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE) -> str:
+                        fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE,
+                        fill_opacity: float = 1.0) -> str:
+        opacity_attr = f' fill-opacity="{fill_opacity}"'
         cx = bbox.x + bbox.width / 2
         cy = bbox.y + bbox.height / 2
+        half_w = bbox.width / 2
+        half_h = bbox.height / 2
+        if self._wobbler:
+            d = self._wobbler.wobble_diamond(cx, cy, half_w, half_h)
+            return (
+                f'      <path d="{d}" '
+                f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
+                f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
+            )
         top = f"{cx},{bbox.y}"
         right = f"{bbox.x + bbox.width},{cy}"
         bottom = f"{cx},{bbox.y + bbox.height}"
@@ -223,16 +269,25 @@ class SvgRenderer:
         points = f"{top} {right} {bottom} {left}"
         return (
             f'      <polygon points="{points}" '
-            f'fill="{fill}" stroke="{stroke}" '
+            f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
             f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
         )
 
     def _render_ellipse(self, center: Point, rx: float, ry: float,
-                        fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE) -> str:
+                        fill: str = _SHAPE_FILL, stroke: str = _SHAPE_STROKE,
+                        fill_opacity: float = 1.0) -> str:
+        opacity_attr = f' fill-opacity="{fill_opacity}"'
+        if self._wobbler:
+            d = self._wobbler.wobble_ellipse(center.x, center.y, rx, ry)
+            return (
+                f'      <path d="{d}" '
+                f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
+                f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
+            )
         return (
             f'      <ellipse cx="{center.x}" cy="{center.y}" '
             f'rx="{rx}" ry="{ry}" '
-            f'fill="{fill}" stroke="{stroke}" '
+            f'fill="{fill}"{opacity_attr} stroke="{stroke}" '
             f'stroke-width="{_SHAPE_STROKE_WIDTH}" />'
         )
 
@@ -343,39 +398,60 @@ class SvgRenderer:
         return Point(avg_x, avg_y)
 
     def _arrowhead_marker(self) -> str:
+        if self._wobbler:
+            d = self._wobbler.wobble_polygon([(0, 0), (12, 4), (0, 8)])
+            inner = f'      <path d="{d}" fill="{_CONNECTOR_COLOR}" />'
+        else:
+            inner = f'      <polygon points="0 0, 12 4, 0 8" fill="{_CONNECTOR_COLOR}" />'
         return (
             '    <marker id="arrowhead" markerWidth="12" markerHeight="8" '
             'refX="12" refY="4" orient="auto" markerUnits="strokeWidth">\n'
-            f'      <polygon points="0 0, 12 4, 0 8" fill="{_CONNECTOR_COLOR}" />\n'
+            f'{inner}\n'
             '    </marker>'
         )
 
     def render_section(self, label: str, bounds: BBox, style: SectionStyle) -> str:
         """Render a section background rectangle with a label."""
         parts = []
-        parts.append(
-            f'      <rect x="{bounds.x}" y="{bounds.y}" '
-            f'width="{bounds.width}" height="{bounds.height}" '
-            f'rx="{style.corner_radius}" ry="{style.corner_radius}" '
-            f'fill="{style.fill}" stroke="{style.stroke}" '
-            f'stroke-width="{style.stroke_width}" />'
-        )
+        if self._wobbler:
+            d = self._wobbler.wobble_rect(
+                bounds.x, bounds.y, bounds.width, bounds.height, style.corner_radius
+            )
+            parts.append(
+                f'      <path d="{d}" '
+                f'fill="{style.fill}" stroke="{style.stroke}" '
+                f'stroke-width="{style.stroke_width}" />'
+            )
+        else:
+            parts.append(
+                f'      <rect x="{bounds.x}" y="{bounds.y}" '
+                f'width="{bounds.width}" height="{bounds.height}" '
+                f'rx="{style.corner_radius}" ry="{style.corner_radius}" '
+                f'fill="{style.fill}" stroke="{style.stroke}" '
+                f'stroke-width="{style.stroke_width}" />'
+            )
         # Label at top-left inside the section
         label_x = bounds.x + style.padding
         label_y = bounds.y + style.label_font_size + 4.0
+        title_font = TEXT_STYLE_DEFAULTS[TextRole.TITLE].font_family
         parts.append(
             f'      <text x="{label_x}" y="{label_y}" '
-            f'font-family="Arial" font-size="{style.label_font_size}" '
+            f'font-family="{title_font}" font-size="{style.label_font_size}" '
             f'font-weight="bold" fill="{style.label_color}">'
             f'{_escape_xml(label)}</text>'
         )
         return "\n".join(parts)
 
     def _arrowhead_marker_start(self) -> str:
+        if self._wobbler:
+            d = self._wobbler.wobble_polygon([(0, 0), (12, 4), (0, 8)])
+            inner = f'      <path d="{d}" fill="{_CONNECTOR_COLOR}" />'
+        else:
+            inner = f'      <polygon points="0 0, 12 4, 0 8" fill="{_CONNECTOR_COLOR}" />'
         return (
             '    <marker id="arrowhead-start" markerWidth="12" markerHeight="8" '
             'refX="0" refY="4" orient="auto-start-reverse" markerUnits="strokeWidth">\n'
-            f'      <polygon points="0 0, 12 4, 0 8" fill="{_CONNECTOR_COLOR}" />\n'
+            f'{inner}\n'
             '    </marker>'
         )
 
