@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from plotcraft.types import TimelineEntry, TimelineOrientation, TreeNode
+from plotcraft.types import TimelineEntry, TimelineOrientation, TreeNode, TEXT_STYLE_DEFAULTS, TextRole
 from plotcraft.grid import GridConfig
+from plotcraft.wobble import Wobbler
 
 
 # Style constants
@@ -11,8 +12,9 @@ _DOT_RADIUS = 6
 _DOT_FILL = "#007bff"
 _DOT_STROKE = "#0056b3"
 _LINE_STROKE = "#999"
-_LINE_STROKE_WIDTH = 1.5
+_LINE_STROKE_WIDTH = 2.0
 _LABEL_FONT_SIZE = 14
+_LABEL_FONT_FAMILY = TEXT_STYLE_DEFAULTS[TextRole.BODY].font_family
 
 
 def _escape_xml(text: str) -> str:
@@ -39,6 +41,7 @@ def build_timeline(
     start_row: int,
     start_col: int,
     grid_config: GridConfig,
+    wobbler: Wobbler | None = None,
 ) -> str:
     """Return SVG fragment for a timeline with dots, a connecting line, and labels."""
     if not entries:
@@ -62,15 +65,22 @@ def build_timeline(
         # Dots and labels
         for i, entry in enumerate(entries):
             cx = xs[i]
-            parts.append(
-                f'      <circle cx="{cx}" cy="{y}" r="{_DOT_RADIUS}" '
-                f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
-            )
+            if wobbler is not None:
+                dot_d = wobbler.wobble_circle(cx, y, _DOT_RADIUS)
+                parts.append(
+                    f'      <path d="{dot_d}" '
+                    f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
+                )
+            else:
+                parts.append(
+                    f'      <circle cx="{cx}" cy="{y}" r="{_DOT_RADIUS}" '
+                    f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
+                )
             # Label below the dot
             label_y = y + _DOT_RADIUS + _LABEL_FONT_SIZE + 4
             parts.append(
                 f'      <text x="{cx}" y="{label_y}" '
-                f'text-anchor="middle" font-family="Arial" '
+                f'text-anchor="middle" font-family="{_LABEL_FONT_FAMILY}" '
                 f'font-size="{_LABEL_FONT_SIZE}" fill="#222222">'
                 f'{_escape_xml(entry.label)}</text>'
             )
@@ -89,16 +99,23 @@ def build_timeline(
         # Dots and labels
         for i, entry in enumerate(entries):
             cy = ys[i]
-            parts.append(
-                f'      <circle cx="{x}" cy="{cy}" r="{_DOT_RADIUS}" '
-                f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
-            )
+            if wobbler is not None:
+                dot_d = wobbler.wobble_circle(x, cy, _DOT_RADIUS)
+                parts.append(
+                    f'      <path d="{dot_d}" '
+                    f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
+                )
+            else:
+                parts.append(
+                    f'      <circle cx="{x}" cy="{cy}" r="{_DOT_RADIUS}" '
+                    f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
+                )
             # Label to the right of the dot
             label_x = x + _DOT_RADIUS + 10
             parts.append(
                 f'      <text x="{label_x}" y="{cy}" '
                 f'text-anchor="start" dominant-baseline="central" '
-                f'font-family="Arial" font-size="{_LABEL_FONT_SIZE}" '
+                f'font-family="{_LABEL_FONT_FAMILY}" font-size="{_LABEL_FONT_SIZE}" '
                 f'fill="#222222">{_escape_xml(entry.label)}</text>'
             )
 
@@ -111,12 +128,13 @@ def build_tree(
     start_row: int,
     start_col: int,
     grid_config: GridConfig,
+    wobbler: Wobbler | None = None,
 ) -> str:
     """Return SVG fragment for a tree with lines and labels (no boxes)."""
     cfg = grid_config
     parts: list[str] = []
     parts.append('    <g class="tree">')
-    _render_tree_node(root, start_row, start_col, cfg, parts, _count_rows=[0])
+    _render_tree_node(root, start_row, start_col, cfg, parts, _count_rows=[0], wobbler=wobbler)
     parts.append("    </g>")
     return "\n".join(parts)
 
@@ -135,23 +153,31 @@ def _render_tree_node(
     cfg: GridConfig,
     parts: list[str],
     _count_rows: list[int],
+    wobbler: Wobbler | None = None,
 ) -> None:
     """Recursively render tree nodes. Each node gets its own row; children indent by one column."""
     x = _cell_center_x(col, cfg)
     y = _cell_center_y(row, cfg)
 
     # Dot for this node
-    parts.append(
-        f'      <circle cx="{x}" cy="{y}" r="{_DOT_RADIUS}" '
-        f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
-    )
+    if wobbler is not None:
+        dot_d = wobbler.wobble_circle(x, y, _DOT_RADIUS)
+        parts.append(
+            f'      <path d="{dot_d}" '
+            f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
+        )
+    else:
+        parts.append(
+            f'      <circle cx="{x}" cy="{y}" r="{_DOT_RADIUS}" '
+            f'fill="{_DOT_FILL}" stroke="{_DOT_STROKE}" />'
+        )
 
     # Label to the right of the dot
     label_x = x + _DOT_RADIUS + 10
     parts.append(
         f'      <text x="{label_x}" y="{y}" '
         f'text-anchor="start" dominant-baseline="central" '
-        f'font-family="Arial" font-size="{_LABEL_FONT_SIZE}" '
+        f'font-family="{_LABEL_FONT_FAMILY}" font-size="{_LABEL_FONT_SIZE}" '
         f'fill="#222222">{_escape_xml(node.label)}</text>'
     )
 
@@ -188,4 +214,4 @@ def _render_tree_node(
             f'      <line x1="{x}" y1="{cy}" x2="{child_x}" y2="{cy}" '
             f'stroke="{_LINE_STROKE}" stroke-width="{_LINE_STROKE_WIDTH}" />'
         )
-        _render_tree_node(child, child_rows[i], child_col, cfg, parts, _count_rows)
+        _render_tree_node(child, child_rows[i], child_col, cfg, parts, _count_rows, wobbler=wobbler)
