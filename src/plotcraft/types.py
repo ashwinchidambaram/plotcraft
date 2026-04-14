@@ -100,10 +100,10 @@ class TextStyle:
 
 
 TEXT_STYLE_DEFAULTS: dict[TextRole, TextStyle] = {
-    TextRole.TITLE: TextStyle("Arial", 24.0, "bold", 1.3),
-    TextRole.SUBTITLE: TextStyle("Arial", 18.0, "bold", 1.3),
-    TextRole.CAPTION: TextStyle("Arial", 12.0, "normal", 1.3),
-    TextRole.BODY: TextStyle("Arial", 14.0, "normal", 1.4),
+    TextRole.TITLE: TextStyle("Caveat", 48.0, "bold", 1.3),
+    TextRole.SUBTITLE: TextStyle("Caveat", 32.0, "600", 1.3),
+    TextRole.BODY: TextStyle("Patrick Hand", 18.0, "normal", 1.4),
+    TextRole.CAPTION: TextStyle("Indie Flower", 14.0, "normal", 1.3),
 }
 
 
@@ -138,18 +138,19 @@ class ColorTheme(Enum):
 class ColorPalette:
     fill: str
     stroke: str
+    fill_opacity: float = 1.0
 
 
 COLOR_DEFAULTS: dict[ColorTheme, ColorPalette] = {
-    ColorTheme.NEUTRAL: ColorPalette(fill="#f8f9fa", stroke="#333333"),
-    ColorTheme.START: ColorPalette(fill="#d4edda", stroke="#28a745"),
-    ColorTheme.END: ColorPalette(fill="#f8d7da", stroke="#dc3545"),
-    ColorTheme.DECISION: ColorPalette(fill="#fff3cd", stroke="#ffc107"),
-    ColorTheme.ERROR: ColorPalette(fill="#f8d7da", stroke="#dc3545"),
-    ColorTheme.HIGHLIGHT: ColorPalette(fill="#cce5ff", stroke="#007bff"),
-    ColorTheme.INFO: ColorPalette(fill="#d1ecf1", stroke="#17a2b8"),
-    ColorTheme.SUCCESS: ColorPalette(fill="#d4edda", stroke="#28a745"),
-    ColorTheme.WARNING: ColorPalette(fill="#fff3cd", stroke="#e0a800"),
+    ColorTheme.NEUTRAL: ColorPalette(fill="#f1eee8", stroke="#5a5a52", fill_opacity=0.6),
+    ColorTheme.START: ColorPalette(fill="#bbe8bb", stroke="#4a9d5f", fill_opacity=0.5),
+    ColorTheme.END: ColorPalette(fill="#f7c9c9", stroke="#c85a5a", fill_opacity=0.5),
+    ColorTheme.DECISION: ColorPalette(fill="#fff2ae", stroke="#d4a943", fill_opacity=0.6),
+    ColorTheme.ERROR: ColorPalette(fill="#ffb7aa", stroke="#e8704f", fill_opacity=0.5),
+    ColorTheme.HIGHLIGHT: ColorPalette(fill="#ccddff", stroke="#6b8fcc", fill_opacity=0.5),
+    ColorTheme.INFO: ColorPalette(fill="#b2ece3", stroke="#4daa9a", fill_opacity=0.5),
+    ColorTheme.SUCCESS: ColorPalette(fill="#c8f0c8", stroke="#5fb377", fill_opacity=0.5),
+    ColorTheme.WARNING: ColorPalette(fill="#ffdab9", stroke="#e89454", fill_opacity=0.5),
 }
 
 
@@ -167,7 +168,7 @@ class LineWeight(Enum):
 
 LINE_WEIGHT_WIDTHS: dict["LineWeight", float] = {
     LineWeight.THIN: 1.0,
-    LineWeight.NORMAL: 1.5,
+    LineWeight.NORMAL: 2.0,
     LineWeight.BOLD: 3.0,
 }
 

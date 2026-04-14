@@ -11,7 +11,9 @@ def _make_two_shapes_grid():
     s1 = create_shape("left", "Left Shape")
     s2 = create_shape("right", "Right Shape")
     grid.place(s1, 0, 0)
-    grid.place(s2, 0, 1)
+    # s1 has col_span=2 at the new BODY font size (18px Patrick Hand), so s2
+    # must start at column 2 to avoid a PlacementError.
+    grid.place(s2, 0, 2)
     placements = {p.shape.id: p for p in grid.all_placements()}
     return placements
 

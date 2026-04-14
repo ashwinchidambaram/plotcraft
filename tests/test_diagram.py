@@ -93,7 +93,9 @@ def test_full_diagram():
 
     root = ET.fromstring(svg)
     assert root.tag == "{http://www.w3.org/2000/svg}svg"
-    assert "User Request" in svg
+    # Title text may wrap into multiple tspan elements at large font sizes,
+    # so check that all words appear somewhere in the SVG.
+    assert "User" in svg and "Request" in svg
     assert "Parse Input" in svg
     assert "Valid?" in svg
     assert "Return Result" in svg
