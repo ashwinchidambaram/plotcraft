@@ -248,13 +248,15 @@ class Wobbler:
         return _smooth_bezier_path(points, closed=True)
 
     def wobble_diamond(
-        self, cx: float, cy: float, half_w: float, half_h: float
+        self, cx: float, cy: float, half_w: float, half_h: float,
+        segments_per_side: int = 3,
     ) -> str:
         """Return SVG path d-string for a wobbly diamond.
 
         Vertices: top (cx, cy-half_h), right (cx+half_w, cy),
                   bottom (cx, cy+half_h), left (cx-half_w, cy).
-        Each vertex is wobbled before connecting with cubic bezier curves.
+        Samples intermediate points along each edge to preserve the angular
+        diamond shape when smoothed by bezier curves.
         """
         vertices = [
             Point(cx, cy - half_h),       # top
@@ -262,17 +264,36 @@ class Wobbler:
             Point(cx, cy + half_h),        # bottom
             Point(cx - half_w, cy),        # left
         ]
-        points = [self.wobble_point(v) for v in vertices]
+        points: list[Point] = []
+        for i in range(4):
+            p0 = vertices[i]
+            p1 = vertices[(i + 1) % 4]
+            # Add the vertex
+            points.append(self.wobble_point(p0))
+            # Add intermediate points along the edge
+            for k in range(1, segments_per_side):
+                t = k / segments_per_side
+                mid = Point(p0.x + t * (p1.x - p0.x), p0.y + t * (p1.y - p0.y))
+                points.append(self.wobble_point(mid))
         return _smooth_bezier_path(points, closed=True)
 
-    def wobble_polygon(self, points: list[tuple[float, float]]) -> str:
+    def wobble_polygon(self, points: list[tuple[float, float]], use_lines: bool = False) -> str:
         """Return SVG path d-string for a wobbly polygon.
 
-        General wobbly polygon from a list of (x, y) points. Applies wobble
-        to each vertex and connects with cubic bezier curves. Useful for
-        arrowheads and other custom shapes.
+        General wobbly polygon from a list of (x, y) points. When use_lines
+        is True, connects with straight lines (better for small shapes like
+        arrowheads). Otherwise uses cubic bezier curves.
         """
         wobbled = [self.wobble_point(Point(x, y)) for x, y in points]
+        if use_lines:
+            def fmt(v: float) -> str:
+                return f"{v:.2f}"
+            p0 = wobbled[0]
+            d = f"M {fmt(p0.x)} {fmt(p0.y)}"
+            for p in wobbled[1:]:
+                d += f" L {fmt(p.x)} {fmt(p.y)}"
+            d += " Z"
+            return d
         return _smooth_bezier_path(wobbled, closed=True)
 
     def wobble_bezier_points(

@@ -399,7 +399,7 @@ class SvgRenderer:
 
     def _arrowhead_marker(self) -> str:
         if self._wobbler:
-            d = self._wobbler.wobble_polygon([(0, 0), (12, 4), (0, 8)])
+            d = self._wobbler.wobble_polygon([(0, 0), (12, 4), (0, 8)], use_lines=True)
             inner = f'      <path d="{d}" fill="{_CONNECTOR_COLOR}" />'
         else:
             inner = f'      <polygon points="0 0, 12 4, 0 8" fill="{_CONNECTOR_COLOR}" />'
@@ -444,7 +444,7 @@ class SvgRenderer:
 
     def _arrowhead_marker_start(self) -> str:
         if self._wobbler:
-            d = self._wobbler.wobble_polygon([(0, 0), (12, 4), (0, 8)])
+            d = self._wobbler.wobble_polygon([(0, 0), (12, 4), (0, 8)], use_lines=True)
             inner = f'      <path d="{d}" fill="{_CONNECTOR_COLOR}" />'
         else:
             inner = f'      <polygon points="0 0, 12 4, 0 8" fill="{_CONNECTOR_COLOR}" />'
