@@ -27,3 +27,11 @@ Thumbs.db
 
 # Project
 .claude/worklog.md
+
+# Generated diagram outputs (build artifacts)
+*.png
+*.drawio
+*.excalidraw
+tests/visual/screenshots/
+
+# Keep example outputs tracked explicitly with git add -f
