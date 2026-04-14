@@ -27,7 +27,7 @@ Draw.io desktop app must be installed for high-quality rendering:
 
 ## The Process
 
-Follow these steps IN ORDER. Do not skip steps.
+Follow these steps IN ORDER (Steps 0–9). Do not skip steps.
 
 ### Step 0: Identify the Promise
 
@@ -83,6 +83,8 @@ Every choice must encode meaning:
 
 **Container discipline:** Default to `ShapeKind.NONE` for labels and descriptions. Only use container shapes when arrows connect to it or the shape carries meaning.
 
+**Section discipline:** Only group shapes that occupy contiguous grid positions into a section. If shapes are spread across non-adjacent rows/columns, the section bounding box will be oversized and visually confusing. Split into multiple sections instead.
+
 ### Step 5: Plan the Eye Flow
 
 Trace the intended reading path: Where does the eye land first → follow → end?
@@ -102,7 +104,8 @@ from plotcraft import (
 )
 
 # Use wider grid cells for readability in draw.io output
-d = Diagram(grid_config=GridConfig(cell_width=240, cell_height=160, margin=30))
+# NOTE: 260px cell_width prevents ovals/diamonds from spanning 2 columns
+d = Diagram(grid_config=GridConfig(cell_width=260, cell_height=160, margin=30))
 
 # Title: the promise
 d.add("title", "How AI agents reason and act",
@@ -115,6 +118,8 @@ d.add("start", "User Query", shape=ShapeKind.OVAL, color=ColorTheme.START, row=1
 # Save as draw.io for high-quality rendering
 d.save("output.drawio")
 ```
+
+**IMPORTANT — Anchor direction:** When calling `connect()`, always set `source_anchor` and `target_anchor` based on the relative position of the two shapes. If the target is LEFT of the source, exit LEFT and enter RIGHT. If the target is BELOW, exit BOTTOM and enter TOP. See the "Anchor Selection by Direction" table in the Quick Reference below. **Never rely on the defaults for non-left-to-right connections.**
 
 ### Step 7: Render via Draw.io
 
@@ -159,6 +164,20 @@ If any check fails, edit the Python code and re-export. Common fixes:
 - Change anchor points to fix arrow routing
 - Add `SectionStyle` for visual grouping
 
+**Common pitfalls:**
+- **PlacementError**: Shapes with long text (especially ovals/diamonds) may span 2+ grid columns. Fix: increase `cell_width` to 260+ or use shorter text.
+- **Overlapping sections**: If a section's shapes span non-contiguous grid areas, the section box covers too much. Fix: only group adjacent shapes.
+- **Visual gaps**: Skipping column numbers (e.g., col 4 to col 6) creates empty space. This is useful to separate phases but avoid unintentional gaps.
+
+### Combining Multiple Patterns
+
+Real diagrams often combine patterns (e.g., pipeline + decision + cycle). Strategy:
+1. Lay out the **primary pattern** first (usually pipeline or fan-out) on the main row.
+2. Add **decision branches** by placing the diamond in-line, then branching to rows above/below.
+3. Add **feedback loops** by connecting failure paths back to earlier nodes, using `ConnectorStyle.DOTTED` for visual distinction.
+4. Use **sections** to group phases (e.g., "CI Checks", "Deploy", "Client", "Backend").
+5. Place **annotations** (`ShapeKind.NONE`) near the element they describe, on a row below.
+
 ---
 
 ## Anti-Patterns to AVOID
@@ -197,8 +216,8 @@ from plotcraft import (
     GridConfig, SectionStyle, TimelineEntry, TimelineOrientation, TreeNode,
 )
 
-# Create diagram with wider cells for draw.io
-d = Diagram(grid_config=GridConfig(cell_width=240, cell_height=160, margin=30))
+# Create diagram with wider cells for draw.io (260 prevents multi-column spans)
+d = Diagram(grid_config=GridConfig(cell_width=260, cell_height=160, margin=30))
 
 # Add shapes (all return self for chaining)
 d.add(id, text, role=TextRole.BODY, shape=ShapeKind.RECT,
@@ -239,6 +258,39 @@ BOTTOM_LEFT   BOTTOM_CENTER  BOTTOM_RIGHT
 ```
 
 For diamonds: prefer side midpoints (TOP/RIGHT/BOTTOM/LEFT_CENTER) which map to the diamond's actual vertices.
+
+### CRITICAL: Anchor Selection by Direction
+
+**Anchors must match the RELATIVE POSITION of source and target.** The arrow exits the source toward the target and enters the target from the source's direction. Getting this wrong causes arrows to U-turn and take bizarre routes.
+
+| Target is... | Source anchor | Target anchor |
+|---|---|---|
+| **Right** of source | `RIGHT_CENTER` | `LEFT_CENTER` |
+| **Left** of source | `LEFT_CENTER` | `RIGHT_CENTER` |
+| **Below** source | `BOTTOM_CENTER` | `TOP_CENTER` |
+| **Above** source | `TOP_CENTER` | `BOTTOM_CENTER` |
+| **Below-right** | `BOTTOM_CENTER` or `RIGHT_CENTER` | `TOP_CENTER` or `LEFT_CENTER` |
+| **Below-left** | `BOTTOM_CENTER` or `LEFT_CENTER` | `TOP_CENTER` or `RIGHT_CENTER` |
+
+**The rule:** The arrow EXITS the source on the side FACING the target, and ENTERS the target on the side FACING the source.
+
+**Common mistake:** Using the default `RIGHT_CENTER → LEFT_CENTER` for a connection that goes LEFT (target is left of source). This makes the arrow exit rightward, U-turn, and loop around — creating the bizarre routing you see.
+
+**Example — connecting right-to-left (Act ← Think):**
+```python
+# Think is at col=2, Act is at col=0 (Act is LEFT of Think)
+d.connect("think", "act",
+          source_anchor=AnchorName.LEFT_CENTER,    # exit Think leftward
+          target_anchor=AnchorName.RIGHT_CENTER)   # enter Act from right
+```
+
+**Example — connecting bottom-to-top (feedback loop):**
+```python
+# Act is at row=3, Observe is at row=1 (Observe is ABOVE Act)
+d.connect("act", "observe",
+          source_anchor=AnchorName.TOP_CENTER,     # exit Act upward
+          target_anchor=AnchorName.BOTTOM_CENTER)  # enter Observe from below
+```
 
 ### Connector Styles
 - `ConnectorStyle.SOLID` — primary flow
