@@ -93,9 +93,26 @@ Trace the intended reading path: Where does the eye land first → follow → en
 - Arrows pull the eye along the narrative
 - The endpoint completes the arc started by the title
 
-### Step 6: Write the Code
+### Step 6: Write the Code in Passes
 
-Use PlotCraft's API. See `references/patterns.md` for complete code examples per pattern.
+**Build the diagram in 3 passes to prevent drift.** Writing the entire diagram in one block causes the LLM to lose track of positions and relationships, resulting in overlaps and wrong connections. Break it up:
+
+#### Pass A: Layout Table (plan before coding)
+
+First, write out a position table as a comment. This is your source of truth:
+
+```python
+# LAYOUT TABLE:
+# row=0: title (col=1)
+# row=1: query (col=0), observe (col=2)
+# row=3: act (col=0), think (col=2), answer (col=4)
+```
+
+Keep this table SHORT — 1 line per element. If you have >12 elements, split into sections and plan each section's grid region separately.
+
+#### Pass B: Shapes Only (no connectors)
+
+Add all shapes. Verify the layout table matches. Do NOT add connectors yet.
 
 ```python
 from plotcraft import (
@@ -103,23 +120,84 @@ from plotcraft import (
     ConnectorStyle, LineWeight, ColorTheme, GridConfig, SectionStyle,
 )
 
-# Use wider grid cells for readability in draw.io output
-# NOTE: 260px cell_width prevents ovals/diamonds from spanning 2 columns
 d = Diagram(grid_config=GridConfig(cell_width=260, cell_height=160, margin=30))
 
-# Title: the promise
+# Title
 d.add("title", "How AI agents reason and act",
       role=TextRole.TITLE, shape=ShapeKind.NONE, row=0, col=1)
 
-# Build the diagram...
-d.add("start", "User Query", shape=ShapeKind.OVAL, color=ColorTheme.START, row=1, col=0)
-# ...
+# Row 1: entry and observe
+d.add("query", "User Query", shape=ShapeKind.OVAL, color=ColorTheme.START, row=1, col=0)
+d.add("observe", "Observe", shape=ShapeKind.RECT, color=ColorTheme.INFO, row=1, col=2)
 
-# Save as draw.io for high-quality rendering
+# Row 3: act, think, answer
+d.add("act", "Act", shape=ShapeKind.RECT, color=ColorTheme.HIGHLIGHT, row=3, col=0)
+d.add("think", "Think", shape=ShapeKind.DIAMOND, color=ColorTheme.DECISION, row=3, col=2)
+d.add("answer", "Answer", shape=ShapeKind.OVAL, color=ColorTheme.END, row=3, col=4)
+```
+
+#### Pass C: Connectors (referencing the layout table)
+
+Now add connectors. For each one, check the layout table to confirm direction before choosing anchors. The draw.io renderer auto-corrects bad anchors, but getting them right produces cleaner paths.
+
+```python
+# query(row=1,col=0) → observe(row=1,col=2): target is RIGHT
+d.connect("query", "observe")
+
+# observe(row=1,col=2) → think(row=3,col=2): target is BELOW
+d.connect("observe", "think",
+          source_anchor=AnchorName.BOTTOM_CENTER,
+          target_anchor=AnchorName.TOP_CENTER,
+          line_weight=LineWeight.BOLD)
+
+# think(row=3,col=2) → act(row=3,col=0): target is LEFT
+d.connect("think", "act",
+          source_anchor=AnchorName.LEFT_CENTER,
+          target_anchor=AnchorName.RIGHT_CENTER,
+          line_weight=LineWeight.BOLD)
+
+# act(row=3,col=0) → observe(row=1,col=2): target is ABOVE-RIGHT
+d.connect("act", "observe",
+          source_anchor=AnchorName.TOP_CENTER,
+          target_anchor=AnchorName.BOTTOM_CENTER,
+          label="loop", line_weight=LineWeight.BOLD)
+
+# think(row=3,col=2) → answer(row=3,col=4): target is RIGHT
+d.connect("think", "answer", label="done", style=ConnectorStyle.DASHED)
+```
+
+#### Pass D: Sections and Save
+
+```python
+d.section("Iterative Loop", ["observe", "think", "act"],
+          style=SectionStyle(fill="#ede9e0", stroke="#b0a898", ...))
+
 d.save("output.drawio")
 ```
 
-**IMPORTANT — Anchor direction:** When calling `connect()`, always set `source_anchor` and `target_anchor` based on the relative position of the two shapes. If the target is LEFT of the source, exit LEFT and enter RIGHT. If the target is BELOW, exit BOTTOM and enter TOP. See the "Anchor Selection by Direction" table in the Quick Reference below. **Never rely on the defaults for non-left-to-right connections.**
+**Why passes matter:** Each pass is small enough to hold in context. The layout table prevents drift. Connectors reference the table to get directions right. This consistently produces better diagrams than one giant code block.
+
+### LLM Pitfall Prevention
+
+These are the ways diagram generation goes wrong. Read before coding.
+
+**1. Complexity budget:** Count your elements. For draw.io output:
+- **Simple** (≤6 shapes): one pattern, no sections needed
+- **Medium** (7-10 shapes): one or two patterns, 1-2 sections
+- **Complex** (11-15 shapes): multiple patterns, sections required
+- **Too many** (>15 shapes): split into multiple diagrams. A single diagram with >15 shapes almost always has overlaps and routing problems.
+
+**2. Diamond/oval span awareness:** Diamonds and ovals are WIDER than rectangles. At `cell_width=260`:
+- `ShapeKind.RECT` with short text = 1 column
+- `ShapeKind.DIAMOND` = often 1 column but taller (2 rows)
+- `ShapeKind.OVAL` with long text = may span 2 columns
+- **Leave at least 1 empty column** between a diamond/oval and its neighbor
+
+**3. Row skipping for vertical space:** When shapes in different rows need connectors between them, skip a row. Shapes at row=1 and row=2 are too close — use row=1 and row=3. The empty row=2 gives the router space.
+
+**4. Don't copy pattern examples literally.** The row/col values in `references/patterns.md` are examples. Calculate YOUR layout based on YOUR shapes and their sizes. Always write the layout table first.
+
+**5. Keep connector count reasonable.** Each connector adds routing complexity. If you have N shapes, aim for N-1 to N+2 connectors. More than 2x shapes = too many connectors, the diagram will be a mess.
 
 ### Step 7: Render via Draw.io
 
@@ -136,25 +214,41 @@ Or for SVG:
 
 ### Step 8: View and Validate
 
-Use the Read tool to view the exported PNG. Check against:
+Use the Read tool to view the exported PNG. Run TWO review passes:
 
-**Communication checks:**
+#### Pass 1: Absolute Nos (BLOCKING — must fix before anything else)
+
+These are hard failures. If ANY are true, stop and fix immediately before evaluating anything else.
+
+- [ ] **No arrows through shapes** — every connector must route AROUND shapes, never through them
+- [ ] **No overlapping shapes** — every shape must have clear space around it, no visual collision
+- [ ] **No text overflow** — all text must fit inside its shape container
+- [ ] **No U-turn arrows** — arrows must not exit a shape, loop around, and re-enter from the same direction (the renderer auto-corrects most of these, but check visually)
+- [ ] **No clipped elements** — nothing cut off at the edges of the export
+- [ ] **No unreadable text** — all labels must be legible at the exported resolution
+- [ ] **No orphaned arrows** — every connector must visually connect to both its source and target shape
+
+If any Absolute No is violated: fix the layout (adjust row/col positions, increase cell_width/cell_height, or reduce element count) and re-export before proceeding to Pass 2.
+
+#### Pass 2: Quality Checks (improve, don't block)
+
+**Communication:**
 - [ ] Title states the insight, not just the topic
 - [ ] Clear start → middle → end narrative
 - [ ] At least one surprise element
 - [ ] Opening mirrors closing (complete arc)
 
-**Structural checks:**
+**Structural:**
 - [ ] Passes isomorphism test (structure communicates without text)
 - [ ] Shape types encode meaning (diamonds=decisions, ovals=terminals)
 - [ ] Colors encode meaning (green=start, red=end, yellow=decision)
 - [ ] Not everything is in a box
 
-**Technical checks:**
-- [ ] All text readable at export size
-- [ ] Arrows route cleanly (draw.io handles this automatically)
+**Technical:**
+- [ ] Arrows route cleanly with natural paths
 - [ ] No disconnected shapes
 - [ ] Labels have breathing room from shapes
+- [ ] Spacing feels balanced (not too cramped, not too sparse)
 
 ### Step 9: Fix and Re-render
 
