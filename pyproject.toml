@@ -18,3 +18,9 @@ packages = ["src/plotcraft"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = ["visual: visual regression tests (require playwright)"]
+
+[dependency-groups]
+dev = [
+    "playwright>=1.58.0",
+]
