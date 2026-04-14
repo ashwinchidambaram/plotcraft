@@ -30,6 +30,116 @@ class Shape:
         return {name: self.anchor(name) for name in AnchorName}
 
 
+def resolve_anchor(
+    kind: ShapeKind,
+    content_bbox: BBox,
+    anchor: AnchorName,
+    position: Point,
+    gap: float = 4.0,
+) -> Point:
+    """Resolve an anchor to the actual visible shape edge.
+
+    Args:
+        kind: The shape type
+        content_bbox: The shape's bounding box (origin at 0,0)
+        anchor: Which anchor point
+        position: The shape's absolute position on canvas (top-left of bbox)
+        gap: Distance to stop before the shape edge (prevents arrow overlap with stroke)
+
+    Returns:
+        Absolute canvas position of the anchor on the visible shape edge,
+        offset by gap in the outward direction.
+    """
+    w = content_bbox.width
+    h = content_bbox.height
+    cx = w / 2
+    cy = h / 2
+
+    # Compute local (relative to bbox origin) resolved point before gap
+    if kind in (ShapeKind.RECT, ShapeKind.SQUARE, ShapeKind.NONE):
+        # Shape fills the bbox — bbox anchors are exact
+        local = content_bbox.anchor(anchor)
+
+    elif kind == ShapeKind.DIAMOND:
+        # Visible diamond has vertices at midpoints of bbox edges:
+        #   top=(cx,0), right=(w,cy), bottom=(cx,h), left=(0,cy)
+        top    = Point(cx, 0)
+        right  = Point(w, cy)
+        bottom = Point(cx, h)
+        left   = Point(0, cy)
+
+        match anchor:
+            case AnchorName.TOP_CENTER:
+                local = top
+            case AnchorName.RIGHT_CENTER:
+                local = right
+            case AnchorName.BOTTOM_CENTER:
+                local = bottom
+            case AnchorName.LEFT_CENTER:
+                local = left
+            case AnchorName.CENTER:
+                local = Point(cx, cy)
+            case AnchorName.TOP_LEFT:
+                # Midpoint of diamond edge from top vertex to left vertex
+                local = Point((top.x + left.x) / 2, (top.y + left.y) / 2)
+            case AnchorName.TOP_RIGHT:
+                # Midpoint of diamond edge from top vertex to right vertex
+                local = Point((top.x + right.x) / 2, (top.y + right.y) / 2)
+            case AnchorName.BOTTOM_RIGHT:
+                # Midpoint of diamond edge from bottom vertex to right vertex
+                local = Point((bottom.x + right.x) / 2, (bottom.y + right.y) / 2)
+            case AnchorName.BOTTOM_LEFT:
+                # Midpoint of diamond edge from bottom vertex to left vertex
+                local = Point((bottom.x + left.x) / 2, (bottom.y + left.y) / 2)
+
+    elif kind == ShapeKind.CIRCLE:
+        # Circle: center at (cx, cy), radius = w/2 (bbox is square for circles)
+        r = w / 2
+        # Direction from center to the corresponding bbox anchor
+        bbox_pt = content_bbox.anchor(anchor)
+        dx = bbox_pt.x - cx
+        dy = bbox_pt.y - cy
+        if anchor == AnchorName.CENTER or (dx == 0 and dy == 0):
+            local = Point(cx, cy)
+        else:
+            length = math.sqrt(dx * dx + dy * dy)
+            ux, uy = dx / length, dy / length
+            local = Point(cx + r * ux, cy + r * uy)
+
+    elif kind == ShapeKind.OVAL:
+        # Ellipse: center at (cx, cy), rx = w/2, ry = h/2
+        rx = w / 2
+        ry = h / 2
+        # Direction from center to the corresponding bbox anchor
+        bbox_pt = content_bbox.anchor(anchor)
+        dx = bbox_pt.x - cx
+        dy = bbox_pt.y - cy
+        if anchor == AnchorName.CENTER or (dx == 0 and dy == 0):
+            local = Point(cx, cy)
+        else:
+            # Angle from center to bbox anchor point
+            theta = math.atan2(dy, dx)
+            local = Point(cx + rx * math.cos(theta), cy + ry * math.sin(theta))
+
+    else:
+        # Fallback: treat as rect
+        local = content_bbox.anchor(anchor)
+
+    # Apply outward gap: compute unit vector from shape center to the resolved local point
+    center_local = Point(cx, cy)
+    dx = local.x - center_local.x
+    dy = local.y - center_local.y
+    dist = math.sqrt(dx * dx + dy * dy)
+    if dist > 0:
+        ux, uy = dx / dist, dy / dist
+        gapped_local = Point(local.x + gap * ux, local.y + gap * uy)
+    else:
+        gapped_local = local
+
+    # Convert from local (bbox-relative) to absolute canvas coordinates
+    return Point(position.x + gapped_local.x, position.y + gapped_local.y)
+
+
 def create_shape(
     id: str,
     text: str,
