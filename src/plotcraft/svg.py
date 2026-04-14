@@ -142,13 +142,18 @@ class SvgRenderer:
         import math
         parts = []
 
-        # Apply wobble to control points when wobbler is available
-        if self._wobbler:
-            path_points = self._wobbler.wobble_bezier_points(connector.path_points)
-        else:
-            path_points = connector.path_points
+        path_points = connector.path_points
 
-        path_d = self._render_bezier_path(path_points)
+        if self._is_orthogonal_path(path_points):
+            # Apply wobble to orthogonal waypoints before converting to SVG path
+            if self._wobbler:
+                path_points = self._wobbler.wobble_bezier_points(path_points)
+            path_d = self._render_orthogonal_path(path_points)
+        else:
+            # Apply wobble to bezier control points when wobbler is available
+            if self._wobbler:
+                path_points = self._wobbler.wobble_bezier_points(path_points)
+            path_d = self._render_bezier_path(path_points)
 
         # Build marker attributes based on direction
         direction = getattr(connector, 'direction', ArrowDirection.FORWARD)
@@ -176,10 +181,16 @@ class SvgRenderer:
             f'{marker_attrs} />'
         )
 
-        # Render label offset perpendicular to the line at the midpoint
+        # Render label at the midpoint of the path
         if connector.label and len(connector.path_points) >= 2:
-            mid = self._bezier_midpoint(path_points)
-            tangent = self._bezier_tangent(path_points)
+            if self._is_orthogonal_path(connector.path_points):
+                mid = self._orthogonal_midpoint(path_points)
+                # For orthogonal paths, offset label perpendicular to the dominant direction
+                # Find segment containing the midpoint for tangent calculation
+                tangent = self._orthogonal_tangent_at_midpoint(path_points)
+            else:
+                mid = self._bezier_midpoint(path_points)
+                tangent = self._bezier_tangent(path_points)
 
             # Perpendicular to tangent (rotate 90° CCW → label goes "above/left")
             length = math.sqrt(tangent.x ** 2 + tangent.y ** 2) or 1.0
@@ -336,6 +347,93 @@ class SvgRenderer:
 
         parts.append("      </text>")
         return "\n".join(parts)
+
+    def _is_orthogonal_path(self, points: tuple[Point, ...]) -> bool:
+        """Check if path points form an orthogonal (all-right-angle) path.
+
+        Bezier paths from route_connector always have exactly 4 or 5 points, so
+        those are never treated as orthogonal even if their control points happen
+        to be axis-aligned.
+        """
+        n = len(points)
+        if n < 2:
+            return False
+        # 4-point and 5-point paths are cubic bezier curves from route_connector
+        if n == 4 or n == 5:
+            return False
+        for i in range(n - 1):
+            dx = abs(points[i + 1].x - points[i].x)
+            dy = abs(points[i + 1].y - points[i].y)
+            # Each segment must be primarily horizontal or vertical
+            if dx > 1e-3 and dy > 1e-3:
+                return False
+        return True
+
+    def _render_orthogonal_path(self, points: tuple[Point, ...]) -> str:
+        """Generate SVG path d attribute from orthogonal waypoints with rounded corners."""
+        from plotcraft.routing import orthogonal_path_to_svg
+        waypoints = list(points)
+        return orthogonal_path_to_svg(waypoints, corner_radius=8.0)
+
+    def _orthogonal_midpoint(self, points: tuple[Point, ...]) -> Point:
+        """Compute the midpoint of an orthogonal path by walking segment lengths."""
+        import math
+        if len(points) < 2:
+            return points[0]
+
+        # Compute total length
+        total = 0.0
+        lengths: list[float] = []
+        for i in range(len(points) - 1):
+            seg_len = math.sqrt(
+                (points[i + 1].x - points[i].x) ** 2
+                + (points[i + 1].y - points[i].y) ** 2
+            )
+            lengths.append(seg_len)
+            total += seg_len
+
+        # Walk to 50% of total length
+        target = total / 2.0
+        accumulated = 0.0
+        for i, seg_len in enumerate(lengths):
+            if accumulated + seg_len >= target:
+                t = (target - accumulated) / seg_len if seg_len > 0 else 0.0
+                x = points[i].x + t * (points[i + 1].x - points[i].x)
+                y = points[i].y + t * (points[i + 1].y - points[i].y)
+                return Point(x, y)
+            accumulated += seg_len
+
+        # Fallback: last point
+        return points[-1]
+
+    def _orthogonal_tangent_at_midpoint(self, points: tuple[Point, ...]) -> Point:
+        """Return the tangent direction at the midpoint of an orthogonal path."""
+        import math
+        if len(points) < 2:
+            return Point(1.0, 0.0)
+
+        # Find the segment containing the midpoint
+        total = 0.0
+        lengths: list[float] = []
+        for i in range(len(points) - 1):
+            seg_len = math.sqrt(
+                (points[i + 1].x - points[i].x) ** 2
+                + (points[i + 1].y - points[i].y) ** 2
+            )
+            lengths.append(seg_len)
+            total += seg_len
+
+        target = total / 2.0
+        accumulated = 0.0
+        for i, seg_len in enumerate(lengths):
+            if accumulated + seg_len >= target:
+                dx = points[i + 1].x - points[i].x
+                dy = points[i + 1].y - points[i].y
+                return Point(dx, dy)
+            accumulated += seg_len
+
+        # Fallback: direction from first to last
+        return Point(points[-1].x - points[0].x, points[-1].y - points[0].y)
 
     def _render_bezier_path(self, points: tuple[Point, ...]) -> str:
         """Generate SVG path d attribute from control points."""
