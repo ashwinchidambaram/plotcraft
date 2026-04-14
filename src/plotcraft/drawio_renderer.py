@@ -66,11 +66,78 @@ CANVAS_PADDING = 60  # extra padding around the diagram content
 # Draw.io needs gaps between shapes for clean arrow routing.
 # Instead of scaling all coords (which distorts proportions),
 # we add a fixed gap per grid cell so there's routing space.
-CELL_GAP_X = 40  # extra horizontal px per grid column
-CELL_GAP_Y = 30  # extra vertical px per grid row
+CELL_GAP_X = 50  # extra horizontal px per grid column
+CELL_GAP_Y = 40  # extra vertical px per grid row
 
 # How far connectors extend from shapes before turning (in px).
 JETTY_SIZE = 16
+
+
+def _compute_best_anchors(
+    src_p: Placement,
+    tgt_p: Placement,
+    user_src_anchor: AnchorName,
+    user_tgt_anchor: AnchorName,
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Compute draw.io anchor fractions based on relative shape positions.
+
+    If the user-specified anchors would cause the arrow to exit AWAY from
+    the target (causing a U-turn), override them with direction-correct
+    anchors. Otherwise respect the user's choice.
+    """
+    # Center positions of source and target
+    src_cx = src_p.position.x + src_p.shape.content_bbox.width / 2
+    src_cy = src_p.position.y + src_p.shape.content_bbox.height / 2
+    tgt_cx = tgt_p.position.x + tgt_p.shape.content_bbox.width / 2
+    tgt_cy = tgt_p.position.y + tgt_p.shape.content_bbox.height / 2
+
+    dx = tgt_cx - src_cx
+    dy = tgt_cy - src_cy
+
+    # Determine dominant direction from source to target
+    if abs(dx) > abs(dy):
+        # Primarily horizontal
+        if dx > 0:
+            best_src = (1, 0.5)    # exit right
+            best_tgt = (0, 0.5)    # enter left
+        else:
+            best_src = (0, 0.5)    # exit left
+            best_tgt = (1, 0.5)    # enter right
+    else:
+        # Primarily vertical
+        if dy > 0:
+            best_src = (0.5, 1)    # exit bottom
+            best_tgt = (0.5, 0)    # enter top
+        else:
+            best_src = (0.5, 0)    # exit top
+            best_tgt = (0.5, 1)    # enter bottom
+
+    # Check if user-specified anchors would cause a U-turn.
+    # A U-turn happens when the exit direction is opposite to the target direction.
+    user_src = ANCHOR_MAP.get(user_src_anchor, (0.5, 0.5))
+    user_tgt = ANCHOR_MAP.get(user_tgt_anchor, (0.5, 0.5))
+
+    def _would_uturn(anchor: tuple[float, float], target_dx: float, target_dy: float) -> bool:
+        """Check if this exit anchor points away from the target."""
+        # Anchor (1, 0.5) = right side. If target is left (dx < 0), that's a U-turn.
+        ax, ay = anchor
+        if ax == 1 and target_dx < -20:    # exiting right, target is far left
+            return True
+        if ax == 0 and target_dx > 20:     # exiting left, target is far right
+            return True
+        if ay == 1 and target_dy < -20:    # exiting bottom, target is far above
+            return True
+        if ay == 0 and target_dy > 20:     # exiting top, target is far below
+            return True
+        return False
+
+    # Override source anchor if it would U-turn
+    src_result = user_src if not _would_uturn(user_src, dx, dy) else best_src
+
+    # Override target anchor if it would U-turn (check from target's perspective)
+    tgt_result = user_tgt if not _would_uturn(user_tgt, -dx, -dy) else best_tgt
+
+    return src_result, tgt_result
 
 
 def _fmt(v: float) -> str:
@@ -180,8 +247,18 @@ def _connector_cells(connector, placements_dict: dict[str, Placement]) -> str:
         stroke_color = "#555555"
 
     # --- Anchor exit/entry ----------------------------------------------------
-    src_anchor = ANCHOR_MAP.get(connector.source_anchor, (0.5, 0.5))
-    tgt_anchor = ANCHOR_MAP.get(connector.target_anchor, (0.5, 0.5))
+    # Auto-compute best anchors from relative positions of source and target.
+    # This overrides user-specified anchors when they would cause U-turn routing
+    # (e.g., exiting RIGHT when the target is to the LEFT).
+    target_placement = placements_dict.get(connector.target_shape_id)
+    if source_placement and target_placement:
+        src_anchor, tgt_anchor = _compute_best_anchors(
+            source_placement, target_placement,
+            connector.source_anchor, connector.target_anchor,
+        )
+    else:
+        src_anchor = ANCHOR_MAP.get(connector.source_anchor, (0.5, 0.5))
+        tgt_anchor = ANCHOR_MAP.get(connector.target_anchor, (0.5, 0.5))
     anchor_style = (
         f"exitX={src_anchor[0]};exitY={src_anchor[1]};exitDx=0;exitDy=0;"
         f"entryX={tgt_anchor[0]};entryY={tgt_anchor[1]};entryDx=0;entryDy=0;"
