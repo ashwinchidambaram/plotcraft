@@ -61,7 +61,15 @@ SHAPE_STYLE_MAP: dict[ShapeKind, str] = {
 # ---------------------------------------------------------------------------
 
 BACKGROUND_COLOR = "#fdf6e3"
-CANVAS_PADDING = 40  # extra padding around the diagram content
+CANVAS_PADDING = 80  # extra padding around the diagram content
+
+# Draw.io needs more space between elements than PlotCraft's tight grid.
+# This multiplier scales all coordinates so the router has room to work.
+SPACING_SCALE = 1.8  # 1.0 = PlotCraft native, 1.8 = roomy for draw.io
+
+# How far connectors extend from shapes before turning (in px).
+# Larger values prevent arrows from hugging shapes too tightly.
+JETTY_SIZE = 20
 
 
 def _fmt(v: float) -> str:
@@ -117,8 +125,9 @@ def _shape_cell(placement: Placement) -> str:
 
     cell_id = f"shape_{shape.id}"
     value = escape(shape.text)
-    x = _fmt(placement.position.x)
-    y = _fmt(placement.position.y)
+    # Apply spacing scale to positions so draw.io has room to route arrows
+    x = _fmt(placement.position.x * SPACING_SCALE + CANVAS_PADDING)
+    y = _fmt(placement.position.y * SPACING_SCALE + CANVAS_PADDING)
     w = _fmt(shape.content_bbox.width)
     h = _fmt(shape.content_bbox.height)
 
@@ -179,6 +188,7 @@ def _connector_cells(connector, placements_dict: dict[str, Placement]) -> str:
     # --- Assemble edge style --------------------------------------------------
     style = (
         f"edgeStyle=orthogonalEdgeStyle;curved=1;rounded=1;"
+        f"jettySize={JETTY_SIZE};"
         f"strokeColor={stroke_color};strokeWidth={stroke_width};"
         f"{arrow_style}"
         f"{line_style_fragment}"
@@ -218,10 +228,11 @@ def _section_cells(index: int, label: str, bounds: BBox, style: SectionStyle) ->
     color = style.label_color
     padding = style.padding
 
-    x = _fmt(bounds.x)
-    y = _fmt(bounds.y)
-    w = _fmt(bounds.width)
-    h = _fmt(bounds.height)
+    # Apply same spacing scale as shapes so sections align
+    x = _fmt(bounds.x * SPACING_SCALE + CANVAS_PADDING)
+    y = _fmt(bounds.y * SPACING_SCALE + CANVAS_PADDING)
+    w = _fmt(bounds.width * SPACING_SCALE)
+    h = _fmt(bounds.height * SPACING_SCALE)
 
     bg_style = (
         f"rounded=1;dashed=1;dashPattern=8 4;"
@@ -234,8 +245,8 @@ def _section_cells(index: int, label: str, bounds: BBox, style: SectionStyle) ->
     )
 
     # Label positioned inside the top-left of the section box
-    lx = _fmt(bounds.x + padding)
-    ly = _fmt(bounds.y + 4)
+    lx = _fmt(bounds.x * SPACING_SCALE + CANVAS_PADDING + padding)
+    ly = _fmt(bounds.y * SPACING_SCALE + CANVAS_PADDING + 4)
     lbl_value = escape(label)
 
     lines = [
@@ -268,8 +279,8 @@ def render_drawio_xml(
     """
     sections = sections or []
 
-    page_width = int(canvas_size.width) + CANVAS_PADDING * 2
-    page_height = int(canvas_size.height) + CANVAS_PADDING * 2
+    page_width = int(canvas_size.width * SPACING_SCALE) + CANVAS_PADDING * 2
+    page_height = int(canvas_size.height * SPACING_SCALE) + CANVAS_PADDING * 2
 
     # Build a lookup for connectors to resolve stroke colours
     placements_dict: dict[str, Placement] = {p.shape.id: p for p in placements}
