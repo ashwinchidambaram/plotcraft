@@ -10,6 +10,7 @@ from plotcraft.types import (
 from plotcraft.diagram import Diagram
 from plotcraft.grid import GridConfig
 from plotcraft.wobble import WobbleConfig
+from plotcraft.advisor import VisualPattern, PATTERNS, SHAPE_SEMANTICS, suggest_pattern, validate_diagram
 
 __all__ = [
     "Diagram",
@@ -27,4 +28,10 @@ __all__ = [
     "TimelineEntry",
     "TreeNode",
     "WobbleConfig",
+    # advisor
+    "VisualPattern",
+    "PATTERNS",
+    "SHAPE_SEMANTICS",
+    "suggest_pattern",
+    "validate_diagram",
 ]
