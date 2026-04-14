@@ -160,6 +160,11 @@ class ConnectorStyle(Enum):
     DOTTED = "dotted"
 
 
+class RoutingStyle(Enum):
+    BEZIER = "bezier"
+    ORTHOGONAL = "orthogonal"
+
+
 class LineWeight(Enum):
     THIN = "thin"
     NORMAL = "normal"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import math
 from dataclasses import dataclass
-from plotcraft.types import AnchorName, ArrowDirection, Point, BBox, ConnectionError, ConnectorStyle, LineWeight
+from plotcraft.types import AnchorName, ArrowDirection, Point, BBox, ConnectionError, ConnectorStyle, LineWeight, RoutingStyle
 from plotcraft.grid import Placement
 
 
@@ -12,11 +12,12 @@ class Connector:
     source_anchor: AnchorName
     target_shape_id: str
     target_anchor: AnchorName
-    path_points: tuple[Point, ...]  # control points for cubic bezier
+    path_points: tuple[Point, ...]  # control points or waypoints depending on routing_style
     label: str | None = None
     style: ConnectorStyle = ConnectorStyle.SOLID
     line_weight: LineWeight = LineWeight.NORMAL
     direction: ArrowDirection = ArrowDirection.FORWARD
+    routing_style: RoutingStyle = RoutingStyle.ORTHOGONAL
 
 
 def create_connector(
@@ -49,8 +50,14 @@ def create_connector(
 
 def _get_absolute_anchor(placement: Placement, anchor_name: AnchorName) -> Point:
     """Get the absolute canvas position of an anchor on a placed shape."""
-    relative = placement.shape.content_bbox.anchor(anchor_name)
-    return Point(placement.position.x + relative.x, placement.position.y + relative.y)
+    from plotcraft.shapes import resolve_anchor
+    return resolve_anchor(
+        kind=placement.shape.kind,
+        content_bbox=placement.shape.content_bbox,
+        anchor=anchor_name,
+        position=placement.position,
+        gap=4.0,
+    )
 
 
 def _departure_direction(anchor: AnchorName) -> Point:
@@ -173,6 +180,7 @@ def route_connector(
                 style=connector.style,
                 line_weight=connector.line_weight,
                 direction=connector.direction,
+                routing_style=RoutingStyle.BEZIER,
             )
 
     # No obstacles: simple cubic bezier: start, cp1, cp2, end
@@ -187,12 +195,54 @@ def route_connector(
         style=connector.style,
         line_weight=connector.line_weight,
         direction=connector.direction,
+        routing_style=RoutingStyle.BEZIER,
+    )
+
+
+def route_connector_orthogonal(
+    connector: Connector,
+    placements: dict[str, Placement],
+) -> Connector:
+    """Route using orthogonal (right-angle) paths that avoid shapes."""
+    source_p = placements[connector.source_shape_id]
+    target_p = placements[connector.target_shape_id]
+
+    start = _get_absolute_anchor(source_p, connector.source_anchor)
+    end = _get_absolute_anchor(target_p, connector.target_anchor)
+
+    # Collect all shape bboxes as obstacles (excluding source and target)
+    obstacles = []
+    for sid, p in placements.items():
+        if sid != connector.source_shape_id and sid != connector.target_shape_id:
+            obstacles.append(BBox(
+                p.position.x, p.position.y,
+                p.shape.content_bbox.width, p.shape.content_bbox.height,
+            ))
+
+    from plotcraft.routing import route_orthogonal
+    waypoints = route_orthogonal(start, end, obstacles)
+
+    return Connector(
+        id=connector.id,
+        source_shape_id=connector.source_shape_id,
+        source_anchor=connector.source_anchor,
+        target_shape_id=connector.target_shape_id,
+        target_anchor=connector.target_anchor,
+        path_points=tuple(waypoints),
+        label=connector.label,
+        style=connector.style,
+        line_weight=connector.line_weight,
+        direction=connector.direction,
+        routing_style=RoutingStyle.ORTHOGONAL,
     )
 
 
 def route_all(
     connectors: list[Connector],
     placements: dict[str, Placement],
+    routing: RoutingStyle = RoutingStyle.ORTHOGONAL,
 ) -> list[Connector]:
-    """Route all connectors."""
+    """Route all connectors using the specified routing style."""
+    if routing == RoutingStyle.ORTHOGONAL:
+        return [route_connector_orthogonal(c, placements) for c in connectors]
     return [route_connector(c, placements) for c in connectors]

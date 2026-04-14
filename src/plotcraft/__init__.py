@@ -4,7 +4,7 @@ __version__ = "0.1.0"
 
 from plotcraft.types import (
     TextRole, ShapeKind, TextAlign, AnchorName, ArrowDirection,
-    ConnectorStyle, LineWeight, SectionStyle, ColorTheme,
+    ConnectorStyle, LineWeight, RoutingStyle, SectionStyle, ColorTheme,
     TimelineOrientation, TimelineEntry, TreeNode,
 )
 from plotcraft.diagram import Diagram
@@ -21,6 +21,7 @@ __all__ = [
     "ArrowDirection",
     "ConnectorStyle",
     "LineWeight",
+    "RoutingStyle",
     "GridConfig",
     "SectionStyle",
     "ColorTheme",

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from plotcraft.types import ShapeKind, TextAlign, ArrowDirection, Size, Point, BBox, TEXT_STYLE_DEFAULTS, COLOR_DEFAULTS, ConnectorStyle, LINE_WEIGHT_WIDTHS, SectionStyle, TextRole
+from plotcraft.types import ShapeKind, TextAlign, ArrowDirection, Size, Point, BBox, TEXT_STYLE_DEFAULTS, COLOR_DEFAULTS, ConnectorStyle, LINE_WEIGHT_WIDTHS, SectionStyle, TextRole, RoutingStyle
 from plotcraft.grid import Placement
 from plotcraft.connectors import Connector
 from plotcraft.wobble import Wobbler
@@ -144,7 +144,8 @@ class SvgRenderer:
 
         path_points = connector.path_points
 
-        if self._is_orthogonal_path(path_points):
+        is_orthogonal = connector.routing_style == RoutingStyle.ORTHOGONAL
+        if is_orthogonal:
             # Apply wobble to orthogonal waypoints before converting to SVG path
             if self._wobbler:
                 path_points = self._wobbler.wobble_bezier_points(path_points)
@@ -183,7 +184,7 @@ class SvgRenderer:
 
         # Render label at the midpoint of the path
         if connector.label and len(connector.path_points) >= 2:
-            if self._is_orthogonal_path(connector.path_points):
+            if is_orthogonal:
                 mid = self._orthogonal_midpoint(path_points)
                 # For orthogonal paths, offset label perpendicular to the dominant direction
                 # Find segment containing the midpoint for tangent calculation
