@@ -172,6 +172,7 @@ def route_connector(
                 label=connector.label,
                 style=connector.style,
                 line_weight=connector.line_weight,
+                direction=connector.direction,
             )
 
     # No obstacles: simple cubic bezier: start, cp1, cp2, end
@@ -185,6 +186,7 @@ def route_connector(
         label=connector.label,
         style=connector.style,
         line_weight=connector.line_weight,
+        direction=connector.direction,
     )
 
 

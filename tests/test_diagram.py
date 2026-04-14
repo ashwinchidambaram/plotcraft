@@ -1,7 +1,7 @@
 import os
 import xml.etree.ElementTree as ET
 import pytest
-from plotcraft import Diagram, TextRole, ShapeKind, AnchorName, GridConfig
+from plotcraft import Diagram, TextRole, ShapeKind, AnchorName, GridConfig, SectionStyle
 
 
 def test_empty_diagram():
@@ -141,4 +141,41 @@ def test_custom_grid_config():
     d = Diagram(grid_config=config)
     d.add("s1", "Custom Grid")
     svg = d.render()
+    ET.fromstring(svg)
+
+
+def test_section_valid():
+    """Adding a section with valid shape_ids does not raise."""
+    d = Diagram()
+    d.add("a", "Alpha")
+    d.add("b", "Beta")
+    d.section("My Group", ["a", "b"])  # should not raise
+
+
+def test_section_invalid_shape_id_raises():
+    """Adding a section with unknown shape_id raises ValueError."""
+    d = Diagram()
+    d.add("a", "Alpha")
+    with pytest.raises(ValueError, match="Unknown shape id"):
+        d.section("Bad Group", ["a", "nonexistent"])
+
+
+def test_section_returns_self():
+    """section() returns self for chaining."""
+    d = Diagram()
+    d.add("a", "Alpha")
+    result = d.section("Group", ["a"])
+    assert result is d
+
+
+def test_section_svg_contains_label_and_fill():
+    """SVG output contains section label text and fill color."""
+    d = Diagram()
+    d.add("a", "Alpha")
+    d.add("b", "Beta")
+    style = SectionStyle(fill="#aabbcc")
+    d.section("Test Section", ["a", "b"], style=style)
+    svg = d.render()
+    assert "Test Section" in svg
+    assert "#aabbcc" in svg
     ET.fromstring(svg)

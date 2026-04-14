@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import pytest
-from plotcraft.types import ShapeKind, TextRole, AnchorName, ArrowDirection
+from plotcraft.types import ShapeKind, TextRole, AnchorName, ArrowDirection, ConnectorStyle, LineWeight, SectionStyle, BBox
 from plotcraft.shapes import create_shape
 from plotcraft.grid import Grid
 from plotcraft.connectors import create_connector, route_connector
@@ -226,3 +226,131 @@ def test_xml_special_chars_escaped():
     assert "&gt;" in svg
     # Should still be valid XML
     ET.fromstring(svg)
+
+
+def _make_directed_connector(direction: ArrowDirection):
+    """Helper: create a routed connector with the given direction."""
+    grid = Grid()
+    s1 = create_shape("a", "Hello", kind=ShapeKind.RECT)
+    s2 = create_shape("b", "World", kind=ShapeKind.RECT)
+    grid.place(s1, 0, 0)
+    grid.place(s2, 0, 1)
+    placements_dict = {p.shape.id: p for p in grid.all_placements()}
+
+    conn = create_connector(
+        "c1", "a", AnchorName.RIGHT_CENTER, "b", AnchorName.LEFT_CENTER,
+        direction=direction,
+    )
+    conn = route_connector(conn, placements_dict)
+    return grid, conn
+
+
+def test_forward_has_marker_end_only():
+    """FORWARD connector has marker-end but not marker-start."""
+    grid, conn = _make_directed_connector(ArrowDirection.FORWARD)
+    renderer = SvgRenderer()
+    svg = renderer.render_diagram(grid.all_placements(), [conn], grid.canvas_size())
+
+    assert 'marker-end="url(#arrowhead)"' in svg
+    assert 'marker-start' not in svg
+
+
+def test_both_has_both_markers():
+    """BOTH connector has both marker-start and marker-end."""
+    grid, conn = _make_directed_connector(ArrowDirection.BOTH)
+    renderer = SvgRenderer()
+    svg = renderer.render_diagram(grid.all_placements(), [conn], grid.canvas_size())
+
+    assert 'marker-end="url(#arrowhead)"' in svg
+    assert 'marker-start="url(#arrowhead-start)"' in svg
+
+
+def test_none_has_no_markers():
+    """NONE connector has neither marker-start nor marker-end."""
+    grid, conn = _make_directed_connector(ArrowDirection.NONE)
+    renderer = SvgRenderer()
+    svg = renderer.render_diagram(grid.all_placements(), [conn], grid.canvas_size())
+
+    assert 'marker-end' not in svg
+    assert 'marker-start' not in svg
+
+
+def test_arrowhead_defs_contain_polygon():
+    """Arrowhead marker defs contain polygon elements."""
+    grid, conn = _make_directed_connector(ArrowDirection.FORWARD)
+    renderer = SvgRenderer()
+    svg = renderer.render_diagram(grid.all_placements(), [conn], grid.canvas_size())
+
+    assert 'id="arrowhead"' in svg
+    assert 'id="arrowhead-start"' in svg
+    assert '<polygon' in svg
+
+
+def _make_styled_connector(style, line_weight):
+    """Helper: create a routed connector with given style and weight."""
+    grid = Grid()
+    s1 = create_shape("a", "Start", kind=ShapeKind.RECT)
+    s2 = create_shape("b", "End", kind=ShapeKind.RECT)
+    grid.place(s1, 0, 0)
+    grid.place(s2, 0, 1)
+    placements_dict = {p.shape.id: p for p in grid.all_placements()}
+
+    conn = create_connector(
+        "c1", "a", AnchorName.RIGHT_CENTER, "b", AnchorName.LEFT_CENTER,
+        style=style, line_weight=line_weight,
+    )
+    conn = route_connector(conn, placements_dict)
+    return grid.all_placements(), [conn], grid.canvas_size()
+
+
+def test_dashed_connector_has_dasharray():
+    """DASHED connector produces stroke-dasharray='8 4'."""
+    placements, connectors, canvas_size = _make_styled_connector(ConnectorStyle.DASHED, LineWeight.NORMAL)
+    renderer = SvgRenderer()
+    svg = renderer.render_diagram(placements, connectors, canvas_size)
+    assert 'stroke-dasharray="8 4"' in svg
+
+
+def test_dotted_connector_has_dasharray():
+    """DOTTED connector produces stroke-dasharray='2 4'."""
+    placements, connectors, canvas_size = _make_styled_connector(ConnectorStyle.DOTTED, LineWeight.NORMAL)
+    renderer = SvgRenderer()
+    svg = renderer.render_diagram(placements, connectors, canvas_size)
+    assert 'stroke-dasharray="2 4"' in svg
+
+
+def test_solid_connector_no_dasharray():
+    """SOLID connector has no stroke-dasharray."""
+    placements, connectors, canvas_size = _make_styled_connector(ConnectorStyle.SOLID, LineWeight.NORMAL)
+    renderer = SvgRenderer()
+    svg = renderer.render_connector(connectors[0])
+    assert 'stroke-dasharray' not in svg
+
+
+def test_bold_connector_has_larger_stroke_width():
+    """BOLD line weight uses stroke-width 3.0."""
+    placements, connectors, canvas_size = _make_styled_connector(ConnectorStyle.SOLID, LineWeight.BOLD)
+    renderer = SvgRenderer()
+    svg = renderer.render_connector(connectors[0])
+    assert 'stroke-width="3.0"' in svg
+
+
+def test_thin_connector_has_smaller_stroke_width():
+    """THIN line weight uses stroke-width 1.0."""
+    placements, connectors, canvas_size = _make_styled_connector(ConnectorStyle.SOLID, LineWeight.THIN)
+    renderer = SvgRenderer()
+    svg = renderer.render_connector(connectors[0])
+    assert 'stroke-width="1.0"' in svg
+
+
+def test_render_section_produces_rect_and_text():
+    """render_section produces a rect and a text element."""
+    renderer = SvgRenderer()
+    bounds = BBox(x=10, y=20, width=300, height=200)
+    style = SectionStyle(fill="#aabbcc", stroke="#112233")
+    svg = renderer.render_section("My Section", bounds, style)
+    assert "<rect" in svg
+    assert "<text" in svg
+    assert "My Section" in svg
+    assert "#aabbcc" in svg
+    assert "#112233" in svg

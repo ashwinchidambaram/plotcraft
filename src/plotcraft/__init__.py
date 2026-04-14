@@ -20,6 +20,7 @@ __all__ = [
     "ConnectorStyle",
     "LineWeight",
     "GridConfig",
+    "SectionStyle",
     "TimelineOrientation",
     "TimelineEntry",
     "TreeNode",
