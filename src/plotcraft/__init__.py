@@ -6,6 +6,7 @@ from plotcraft.types import (
     TextRole, ShapeKind, TextAlign, AnchorName, ArrowDirection,
     ConnectorStyle, LineWeight, RoutingStyle, SectionStyle, ColorTheme,
     TimelineOrientation, TimelineEntry, TreeNode,
+    ThemeMode, DecorativeKind, CalloutPosition,
 )
 from plotcraft.diagram import Diagram
 from plotcraft.grid import GridConfig
@@ -29,6 +30,10 @@ __all__ = [
     "TimelineEntry",
     "TreeNode",
     "WobbleConfig",
+    # visual essay types
+    "ThemeMode",
+    "DecorativeKind",
+    "CalloutPosition",
     # advisor
     "VisualPattern",
     "PATTERNS",

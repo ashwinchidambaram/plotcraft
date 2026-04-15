@@ -47,6 +47,26 @@ _DARK_FILL_THEMES = {ColorTheme.HIGHLIGHT}
 CANVAS_BACKGROUND = "#F9F7F4"
 
 # ---------------------------------------------------------------------------
+# Dark theme colors
+# ---------------------------------------------------------------------------
+
+EXCALIDRAW_COLORS_DARK: dict[ColorTheme, tuple[str, str]] = {
+    ColorTheme.NEUTRAL:   ("#2C2C2C", "#8B8B8B"),
+    ColorTheme.START:     ("#3D1F17", "#D4745E"),
+    ColorTheme.END:       ("#1E2B1E", "#8B9D83"),
+    ColorTheme.DECISION:  ("#2E2214", "#D4A574"),
+    ColorTheme.ERROR:     ("#3D1614", "#D4745E"),
+    ColorTheme.HIGHLIGHT: ("#853D2D", "#D4745E"),
+    ColorTheme.INFO:      ("#1A2830", "#6B8FA3"),
+    ColorTheme.SUCCESS:   ("#1E2B1E", "#8B9D83"),
+    ColorTheme.WARNING:   ("#2E2214", "#D4A574"),
+}
+
+CANVAS_BACKGROUND_DARK = "#1A1A1A"
+
+_TEXT_COLOR_LIGHT_ON_DARK = "#E8DCC4"  # Sand 300 - for text on dark theme
+
+# ---------------------------------------------------------------------------
 # Font size mapping: TextRole → Excalidraw fontSize
 # ---------------------------------------------------------------------------
 
@@ -145,6 +165,7 @@ def _shape_element(
     placement: Placement,
     canvas_padding: float,
     roughness: int = 1,
+    dark: bool = False,
 ) -> tuple[dict, dict | None]:
     """Convert a Placement into Excalidraw element(s).
 
@@ -159,7 +180,7 @@ def _shape_element(
 
     font_size = FONT_SIZE_MAP.get(shape.role, 16)
     theme = shape.color_theme
-    text_color = _text_color_for_theme(theme)
+    text_color = _TEXT_COLOR_LIGHT_ON_DARK if dark else _text_color_for_theme(theme)
 
     if shape.kind == ShapeKind.NONE:
         # Free-floating text — no parent shape
@@ -182,8 +203,9 @@ def _shape_element(
         return text_elem, None
 
     # Visible shape with bound text
-    bg_color, stroke_color = EXCALIDRAW_COLORS.get(
-        theme, EXCALIDRAW_COLORS[ColorTheme.NEUTRAL]
+    palette = EXCALIDRAW_COLORS_DARK if dark else EXCALIDRAW_COLORS
+    bg_color, stroke_color = palette.get(
+        theme, palette[ColorTheme.NEUTRAL]
     )
     excalidraw_type = _SHAPE_TYPE_MAP[shape.kind]
     shape_id = f"exc_shape_{shape.id}"
@@ -235,6 +257,7 @@ def _arrow_element(
     placements_dict: dict[str, Placement],
     canvas_padding: float,
     roughness: int = 1,
+    dark: bool = False,
 ) -> tuple[dict, dict | None]:
     """Convert a Connector into an Excalidraw arrow element and optional label.
 
@@ -264,8 +287,9 @@ def _arrow_element(
 
     # Stroke color from source shape theme
     source_theme = source_p.shape.color_theme
-    _, stroke_color = EXCALIDRAW_COLORS.get(
-        source_theme, EXCALIDRAW_COLORS[ColorTheme.NEUTRAL]
+    palette = EXCALIDRAW_COLORS_DARK if dark else EXCALIDRAW_COLORS
+    _, stroke_color = palette.get(
+        source_theme, palette[ColorTheme.NEUTRAL]
     )
 
     # Line style
@@ -359,6 +383,7 @@ def _section_element(
     style: SectionStyle,
     canvas_padding: float,
     roughness: int = 1,
+    dark: bool = False,
 ) -> list[dict]:
     """Create section background rectangle and label text elements.
 
@@ -370,13 +395,22 @@ def _section_element(
     sx = bounds.x + canvas_padding
     sy = bounds.y + canvas_padding
 
+    if dark:
+        section_fill = "#2C2C2C"
+        section_stroke = "#8B8B8B"
+        label_color = _TEXT_COLOR_LIGHT_ON_DARK
+    else:
+        section_fill = style.fill
+        section_stroke = style.stroke
+        label_color = style.label_color
+
     bg_rect = _make_base_element(
         section_id, "rectangle",
         sx, sy,
         bounds.width, bounds.height,
         roughness=roughness,
-        strokeColor=style.stroke,
-        backgroundColor=style.fill,
+        strokeColor=section_stroke,
+        backgroundColor=section_fill,
         strokeWidth=style.stroke_width,
         strokeStyle="dashed",
         opacity=80,
@@ -388,7 +422,7 @@ def _section_element(
         sx + style.padding, sy + 4,
         200, style.label_font_size * 1.5,
         roughness=0,
-        strokeColor=style.label_color,
+        strokeColor=label_color,
         backgroundColor="transparent",
         strokeWidth=1,
         text=label,
@@ -415,6 +449,7 @@ def render_excalidraw_json(
     sections: list[tuple[str, BBox, SectionStyle]] | None = None,
     roughness: int = 1,
     canvas_padding: float = 60.0,
+    dark: bool = False,
 ) -> dict:
     """Convert PlotCraft's internal model to an Excalidraw JSON document.
 
@@ -444,7 +479,7 @@ def render_excalidraw_json(
 
     # --- Sections (drawn first, behind everything) ---
     for i, (label, bounds, style) in enumerate(sections):
-        section_elems = _section_element(i, label, bounds, style, canvas_padding, roughness)
+        section_elems = _section_element(i, label, bounds, style, canvas_padding, roughness, dark=dark)
         elements.extend(section_elems)
 
     # --- Pass 1: Shapes ---
@@ -452,7 +487,7 @@ def render_excalidraw_json(
     shape_elements_by_id: dict[str, dict] = {}
 
     for placement in placements:
-        shape_elem, text_elem = _shape_element(placement, canvas_padding, roughness)
+        shape_elem, text_elem = _shape_element(placement, canvas_padding, roughness, dark=dark)
 
         if placement.shape.kind == ShapeKind.NONE:
             # shape_elem is the free-floating text; no shape container
@@ -468,7 +503,7 @@ def render_excalidraw_json(
 
     for connector in connectors:
         arrow_elem, label_elem = _arrow_element(
-            connector, placements_dict, canvas_padding, roughness,
+            connector, placements_dict, canvas_padding, roughness, dark=dark,
         )
 
         # Add arrow binding to source and target shape boundElements
@@ -503,7 +538,7 @@ def render_excalidraw_json(
         "source": "plotcraft",
         "elements": elements,
         "appState": {
-            "viewBackgroundColor": CANVAS_BACKGROUND,
+            "viewBackgroundColor": CANVAS_BACKGROUND_DARK if dark else CANVAS_BACKGROUND,
             "gridSize": None,
         },
         "files": {},

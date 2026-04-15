@@ -206,6 +206,23 @@ class TreeNode:
     children: tuple[TreeNode, ...] = ()
 
 
+class ThemeMode(Enum):
+    LIGHT = "light"
+    DARK = "dark"
+
+
+class DecorativeKind(Enum):
+    NUMBERED_CIRCLE = "numbered_circle"
+    BADGE = "badge"
+
+
+class CalloutPosition(Enum):
+    LEFT = "left"
+    RIGHT = "right"
+    ABOVE = "above"
+    BELOW = "below"
+
+
 class PlacementError(Exception):
     pass
 

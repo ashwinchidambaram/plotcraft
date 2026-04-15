@@ -3,6 +3,7 @@ from plotcraft.types import (
     TextRole, ShapeKind, TextAlign, AnchorName, ArrowDirection, SectionStyle, BBox, ColorTheme,
     ConnectorStyle, LineWeight, RoutingStyle,
     TimelineEntry, TimelineOrientation, TreeNode,
+    ThemeMode, DecorativeKind, CalloutPosition,
 )
 from plotcraft.grid import Grid, GridConfig
 from plotcraft.shapes import create_shape
@@ -20,6 +21,7 @@ class Diagram:
         grid_config: GridConfig | None = None,
         routing: RoutingStyle = RoutingStyle.ORTHOGONAL,
         wobble_config: WobbleConfig | None = None,
+        theme: ThemeMode = ThemeMode.LIGHT,
     ):
         self._grid = Grid(grid_config or GridConfig())
         self._shapes: dict[str, object] = {}  # shape_id -> Shape (tracked for validation)
@@ -28,6 +30,7 @@ class Diagram:
         self._timelines: list[dict] = []
         self._trees: list[dict] = []
         self._routing = routing
+        self._theme = theme
         self._wobbler = Wobbler(wobble_config or WobbleConfig())
         self._renderer = SvgRenderer(wobbler=self._wobbler)
 
@@ -123,6 +126,90 @@ class Diagram:
             "start_row": start_row,
             "start_col": start_col,
         })
+        return self
+
+    def callout(
+        self,
+        id: str,
+        text: str,
+        target_id: str,
+        position: CalloutPosition = CalloutPosition.RIGHT,
+        color: ColorTheme = ColorTheme.WARNING,
+    ) -> Diagram:
+        """Add a callout annotation near a target shape with a dotted connector.
+
+        Places a small annotation box adjacent to the target shape and connects
+        them with a dotted line. Returns self for chaining.
+        """
+        if target_id not in self._shapes:
+            raise ValueError(f"Unknown target shape id: '{target_id}'")
+
+        placement = self._grid.get_placement(target_id)
+        target_row = placement.row
+        target_col = placement.col
+
+        # Determine callout placement and anchor pairs based on position.
+        # Use col_span/row_span to skip past the target shape's occupied cells.
+        col_span = placement.col_span
+        row_span = placement.row_span
+
+        if position == CalloutPosition.RIGHT:
+            callout_row = target_row
+            callout_col = target_col + col_span
+            source_anchor = AnchorName.LEFT_CENTER
+            target_anchor = AnchorName.RIGHT_CENTER
+        elif position == CalloutPosition.LEFT:
+            callout_row = target_row
+            callout_col = target_col - 1
+            source_anchor = AnchorName.RIGHT_CENTER
+            target_anchor = AnchorName.LEFT_CENTER
+        elif position == CalloutPosition.ABOVE:
+            callout_row = target_row - 1
+            callout_col = target_col
+            source_anchor = AnchorName.BOTTOM_CENTER
+            target_anchor = AnchorName.TOP_CENTER
+        else:  # BELOW
+            callout_row = target_row + row_span
+            callout_col = target_col
+            source_anchor = AnchorName.TOP_CENTER
+            target_anchor = AnchorName.BOTTOM_CENTER
+
+        self.add(id, text, role=TextRole.CAPTION, shape=ShapeKind.RECT,
+                 row=callout_row, col=callout_col, color=color)
+        self.connect(id, target_id, source_anchor=source_anchor,
+                     target_anchor=target_anchor, direction=ArrowDirection.NONE,
+                     style=ConnectorStyle.DOTTED)
+        return self
+
+    def note(
+        self,
+        id: str,
+        text: str,
+        row: int,
+        col: int,
+        color: ColorTheme = ColorTheme.INFO,
+    ) -> Diagram:
+        """Add a free-floating annotation. Returns self for chaining."""
+        self.add(id, text, role=TextRole.CAPTION, shape=ShapeKind.NONE,
+                 row=row, col=col, color=color)
+        return self
+
+    def decorate(
+        self,
+        id: str,
+        kind: DecorativeKind,
+        text: str = "",
+        row: int | None = None,
+        col: int | None = None,
+        color: ColorTheme = ColorTheme.HIGHLIGHT,
+    ) -> Diagram:
+        """Add a small decorative element (numbered circle, badge). Returns self for chaining."""
+        if kind == DecorativeKind.NUMBERED_CIRCLE:
+            self.add(id, text, role=TextRole.CAPTION, shape=ShapeKind.CIRCLE,
+                     row=row, col=col, color=color)
+        elif kind == DecorativeKind.BADGE:
+            self.add(id, text, role=TextRole.CAPTION, shape=ShapeKind.RECT,
+                     row=row, col=col, color=color)
         return self
 
     def render(self) -> str:
@@ -232,12 +319,14 @@ class Diagram:
     def render_excalidraw(self) -> dict:
         """Generate Excalidraw JSON dict representation of the diagram."""
         from plotcraft.excalidraw_renderer import render_excalidraw_json
+        from plotcraft.types import ThemeMode
         placements = self._grid.all_placements()
         placements_dict = {p.shape.id: p for p in placements}
         sections = self._compute_sections(placements_dict)
         canvas_size = self._grid.canvas_size()
         return render_excalidraw_json(
             placements, self._connectors, canvas_size, sections,
+            dark=(self._theme == ThemeMode.DARK),
         )
 
     def render_drawio(self) -> str:
