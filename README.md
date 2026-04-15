@@ -6,7 +6,13 @@
 
 AI-generated diagrams usually look terrible — misaligned text, arrows through shapes, everything the same size. PlotCraft fixes this by using [D2](https://d2lang.com) for intelligent layout and hand-drawn sketch rendering. The AI writes simple Python, D2 does the visual design.
 
-## Examples
+## Two Modes
+
+PlotCraft supports two fundamentally different diagram types:
+
+### Flowcharts (Scene API → D2)
+
+For **process flows, decisions, and sequences** — you describe elements and connections, D2 handles layout and routing automatically.
 
 <p align="center">
   <img src="examples/renders/https.png" alt="HTTPS diagram" width="90%" />
@@ -16,8 +22,12 @@ AI-generated diagrams usually look terrible — misaligned text, arrows through 
   <img src="examples/renders/startup.png" alt="Startup funding journey" width="90%" />
 </p>
 
+### Spatial Compositions (Excalidraw)
+
+For **visual storytelling through density, quantity, and position** — where the spatial arrangement IS the information. Clusters of shapes, progressive narrowing, scattered elements that tell a story.
+
 <p align="center">
-  <img src="examples/renders/git.png" alt="How Git works" width="90%" />
+  <img src="examples/renders/spatial_gradient_descent.png" alt="Gradient descent convergence" width="90%" />
 </p>
 
 ### Themes
