@@ -90,7 +90,7 @@ BLOCK_W = 130  # prompt block width
 
 elements.append(txt("title", 280, 20, 900, 42,
     "Synaptic Pruning", size=38, color="#1F2937", align="center"))
-elements.append(txt("sub", 180, 65, 1100, 18,
+elements.append(txt("sub", 180, 72, 1100, 18,
     "One-shot compression: generate overspecified, measure each section's impact, cut dead weight, strengthen what matters",
     size=13, color="#6B7280", align="center"))
 
@@ -105,7 +105,7 @@ stages = [
     ("5. Final Prompt", GREEN_S),
 ]
 for i, (label, color) in enumerate(stages):
-    elements.append(txt(f"sh_{i}", STAGE_X[i], 100, 180, 20,
+    elements.append(txt(f"sh_{i}", STAGE_X[i], 120, 180, 20,
         label, size=15, color=color))
 
 
@@ -152,16 +152,18 @@ sections = [
 
 sy = CY - 90
 for i, (name, delta, kind, fill, stroke) in enumerate(sections):
-    bh = 32
+    bh = 38
     elements.append(rect(f"sec_{i}", ax, sy, BLOCK_W, bh, fill, stroke, 90 if kind != "prunable" else 55))
-    elements.append(txt(f"secn_{i}", ax+5, sy+5, 80, 14,
+    elements.append(txt(f"secn_{i}", ax+5, sy+3, 80, 14,
         name, size=10, color="#374151"))
-    # Delta score
+    # Delta score — inside block, right-aligned
     delta_str = f"{delta:+.3f}" if abs(delta) < 0.01 else f"{delta:+.2f}"
-    elements.append(txt(f"secd_{i}", ax+BLOCK_W+5, sy+5, 80, 14,
-        delta_str, size=10, color=stroke))
-    # Kind conveyed by color — legend explains
-    sy += bh + 6
+    elements.append(txt(f"secd_{i}", ax+BLOCK_W-48, sy+3, 44, 14,
+        delta_str, size=9, color=stroke, align="right"))
+    # Kind label — inside block, under the name
+    elements.append(txt(f"seck_{i}", ax+5, sy+20, 70, 12,
+        kind, size=8, color="#9CA3AF"))
+    sy += bh + 4
 
 elements.append(txt("abl_note", ax, sy+10, 180, 25,
     "Remove each section,\nmeasure score drop on 40 examples",
@@ -254,9 +256,8 @@ elements.append(txt("eff2", fx, CY+105, 200, 16,
 elements.append(arr("sa_0", STAGE_X[0]+155, CY, [[0,0],[STAGE_X[1]-STAGE_X[0]-165, 0]], BLUE_S, 2, 50))
 elements.append(arr("sa_1", STAGE_X[1]+BLOCK_W+10, CY, [[0,0],[STAGE_X[2]-STAGE_X[1]-BLOCK_W-20, 0]], ORANGE_S, 2, 50))
 elements.append(arr("sa_2", STAGE_X[2]+BLOCK_W+10, CY, [[0,0],[STAGE_X[3]-STAGE_X[2]-BLOCK_W-20, 0]], RED_S, 2, 50))
-# Stage 4→5: route BELOW the strengthened labels
-arr_4_y = CY + 50
-elements.append(arr("sa_3", STAGE_X[3]+BLOCK_W+10, arr_4_y, [[0,0],[STAGE_X[4]-STAGE_X[3]-BLOCK_W-20, 0]], GREEN_S, 2, 50))
+# Stage 4→5: same height as other arrows
+elements.append(arr("sa_3", STAGE_X[3]+BLOCK_W+10, CY, [[0,0],[STAGE_X[4]-STAGE_X[3]-BLOCK_W-20, 0]], GREEN_S, 2, 50))
 
 
 # ── Pipeline label at bottom ─────────────────────────────────────
