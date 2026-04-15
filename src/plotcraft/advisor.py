@@ -88,6 +88,22 @@ PATTERNS: list[VisualPattern] = [
         shape_hints={"label": ShapeKind.NONE, "option": ShapeKind.RECT, "point": ShapeKind.OVAL},
         color_hints={"label": ColorTheme.NEUTRAL, "option": ColorTheme.HIGHLIGHT, "point": ColorTheme.INFO},
     ),
+    VisualPattern(
+        name="annotated_flow",
+        description="Flow diagram with supporting callouts and annotations",
+        keywords=("annotate", "explain", "context", "callout", "note", "comment"),
+        layout="horizontal",
+        shape_hints={"step": ShapeKind.RECT, "callout": ShapeKind.RECT, "annotation": ShapeKind.NONE},
+        color_hints={"step": ColorTheme.NEUTRAL, "callout": ColorTheme.WARNING, "annotation": ColorTheme.INFO},
+    ),
+    VisualPattern(
+        name="visual_essay",
+        description="Multi-section composition with mixed patterns and decoratives",
+        keywords=("essay", "infographic", "editorial", "multi-section", "composition", "overview"),
+        layout="vertical",
+        shape_hints={"section_title": ShapeKind.NONE, "content": ShapeKind.RECT, "decor": ShapeKind.CIRCLE},
+        color_hints={"section_title": ColorTheme.NEUTRAL, "content": ColorTheme.INFO, "decor": ColorTheme.HIGHLIGHT},
+    ),
 ]
 
 
