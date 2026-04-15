@@ -137,3 +137,9 @@ cd plotcraft
 uv sync
 uv run pytest
 ```
+
+---
+
+<p align="center">
+  <a href="https://github.com/ashwinchidambaram"><img src="assets/ac-blackhole-static.svg" alt="Built by Ashwin Chidambaram" width="260" /></a>
+</p>
