@@ -283,7 +283,14 @@ class Diagram:
                     if os.path.isdir(lib_dir):
                         os.environ["DYLD_LIBRARY_PATH"] = lib_dir
                         break
-            import cairosvg
+            try:
+                import cairosvg
+            except ImportError:
+                raise ImportError(
+                    "cairosvg is required for PNG export from the legacy Diagram API.\n"
+                    "Install it: pip install plotcraft[svg]\n"
+                    "Or use the Scene API with D2: Scene().save('out.png')"
+                )
             cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=path, scale=scale)
         else:
             with open(path, "w") as f:

@@ -791,10 +791,24 @@ class Scene:
         return "\n".join(lines) + "\n"
 
     def _render_d2(self, output_path: str, fmt: str = "svg") -> None:
-        """Render using D2 CLI."""
+        """Render using D2 CLI.
+
+        Requires D2 to be installed: https://d2lang.com/
+        Install via: brew install d2 (macOS) or see docs for other platforms.
+        """
+        import shutil
         import subprocess
         import tempfile
         import os
+
+        if shutil.which("d2") is None:
+            raise RuntimeError(
+                "D2 is not installed. PlotCraft uses D2 for diagram rendering.\n"
+                "Install it:\n"
+                "  macOS:  brew install d2\n"
+                "  Linux:  curl -fsSL https://d2lang.com/install.sh | sh\n"
+                "  Other:  https://d2lang.com/releases\n"
+            )
 
         d2_source = self.to_d2()
 

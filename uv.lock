@@ -275,7 +275,9 @@ wheels = [
 name = "plotcraft"
 version = "0.2.0"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+svg = [
     { name = "cairosvg" },
 ]
 
@@ -286,7 +288,8 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cairosvg", specifier = ">=2.9.0" }]
+requires-dist = [{ name = "cairosvg", marker = "extra == 'svg'", specifier = ">=2.9.0" }]
+provides-extras = ["svg"]
 
 [package.metadata.requires-dev]
 dev = [
