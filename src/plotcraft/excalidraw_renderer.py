@@ -11,6 +11,7 @@ from plotcraft.types import (
     ShapeKind,
     TextRole,
     TextAlign,
+    AnchorName,
     ArrowDirection,
     ConnectorStyle,
     LINE_WEIGHT_WIDTHS,
@@ -18,9 +19,12 @@ from plotcraft.types import (
     SectionStyle,
     Size,
     BBox,
+    Point,
 )
 from plotcraft.grid import Placement
 from plotcraft.connectors import Connector
+from plotcraft.shapes import resolve_anchor
+from plotcraft.routing import route_orthogonal
 
 
 # ---------------------------------------------------------------------------
@@ -252,6 +256,48 @@ def _shape_element(
 # Arrow elements
 # ---------------------------------------------------------------------------
 
+def _compute_best_anchor(
+    src_p: Placement,
+    tgt_p: Placement,
+    user_anchor: AnchorName,
+    is_source: bool,
+) -> AnchorName:
+    """Pick direction-correct anchor, overriding if user's would U-turn."""
+    src_cx = src_p.position.x + src_p.shape.content_bbox.width / 2
+    src_cy = src_p.position.y + src_p.shape.content_bbox.height / 2
+    tgt_cx = tgt_p.position.x + tgt_p.shape.content_bbox.width / 2
+    tgt_cy = tgt_p.position.y + tgt_p.shape.content_bbox.height / 2
+    dx = tgt_cx - src_cx
+    dy = tgt_cy - src_cy
+
+    if abs(dx) > abs(dy):
+        if dx > 0:
+            best_src, best_tgt = AnchorName.RIGHT_CENTER, AnchorName.LEFT_CENTER
+        else:
+            best_src, best_tgt = AnchorName.LEFT_CENTER, AnchorName.RIGHT_CENTER
+    else:
+        if dy > 0:
+            best_src, best_tgt = AnchorName.BOTTOM_CENTER, AnchorName.TOP_CENTER
+        else:
+            best_src, best_tgt = AnchorName.TOP_CENTER, AnchorName.BOTTOM_CENTER
+
+    best = best_src if is_source else best_tgt
+
+    # Check if user anchor would U-turn
+    _UTURN = {
+        AnchorName.RIGHT_CENTER: lambda ddx, ddy: ddx < -20,
+        AnchorName.LEFT_CENTER: lambda ddx, ddy: ddx > 20,
+        AnchorName.BOTTOM_CENTER: lambda ddx, ddy: ddy < -20,
+        AnchorName.TOP_CENTER: lambda ddx, ddy: ddy > 20,
+    }
+    check_dx = dx if is_source else -dx
+    check_dy = dy if is_source else -dy
+    checker = _UTURN.get(user_anchor)
+    if checker and checker(check_dx, check_dy):
+        return best
+    return user_anchor
+
+
 def _arrow_element(
     connector: Connector,
     placements_dict: dict[str, Placement],
@@ -259,7 +305,10 @@ def _arrow_element(
     roughness: int = 1,
     dark: bool = False,
 ) -> tuple[dict, dict | None]:
-    """Convert a Connector into an Excalidraw arrow element and optional label.
+    """Convert a Connector into an Excalidraw arrow element with orthogonal routing.
+
+    Uses PlotCraft's orthogonal router to compute obstacle-avoiding waypoints,
+    producing clean right-angle paths that don't cut through shapes.
 
     Returns (arrow_element, label_text_element_or_None).
     """
@@ -267,7 +316,6 @@ def _arrow_element(
     target_p = placements_dict.get(connector.target_shape_id)
 
     if source_p is None or target_p is None:
-        # Cannot render arrow without both endpoints; skip gracefully
         arrow = _make_base_element(connector.id, "arrow", 0, 0, 0, 0)
         arrow["points"] = [[0, 0], [0, 0]]
         arrow["startBinding"] = None
@@ -276,14 +324,55 @@ def _arrow_element(
         arrow["endArrowhead"] = "arrow"
         return arrow, None
 
-    # Source and target centers
-    src_cx = source_p.position.x + source_p.shape.content_bbox.width / 2 + canvas_padding
-    src_cy = source_p.position.y + source_p.shape.content_bbox.height / 2 + canvas_padding
-    tgt_cx = target_p.position.x + target_p.shape.content_bbox.width / 2 + canvas_padding
-    tgt_cy = target_p.position.y + target_p.shape.content_bbox.height / 2 + canvas_padding
+    # Compute direction-aware anchors (override user anchors if they'd U-turn)
+    src_anchor = _compute_best_anchor(source_p, target_p, connector.source_anchor, is_source=True)
+    tgt_anchor = _compute_best_anchor(source_p, target_p, connector.target_anchor, is_source=False)
 
-    dx = tgt_cx - src_cx
-    dy = tgt_cy - src_cy
+    # Resolve anchors to absolute canvas positions on shape edges
+    start = resolve_anchor(
+        source_p.shape.kind, source_p.shape.content_bbox,
+        src_anchor, source_p.position, gap=6.0,
+    )
+    end = resolve_anchor(
+        target_p.shape.kind, target_p.shape.content_bbox,
+        tgt_anchor, target_p.position, gap=6.0,
+    )
+
+    # Add canvas padding to get final positions
+    start_x = start.x + canvas_padding
+    start_y = start.y + canvas_padding
+    end_x = end.x + canvas_padding
+    end_y = end.y + canvas_padding
+
+    # Collect obstacles (all shapes except source and target)
+    obstacles: list[BBox] = []
+    for sid, p in placements_dict.items():
+        if sid != connector.source_shape_id and sid != connector.target_shape_id:
+            if p.shape.kind != ShapeKind.NONE:
+                obstacles.append(BBox(
+                    p.position.x + canvas_padding,
+                    p.position.y + canvas_padding,
+                    p.shape.content_bbox.width,
+                    p.shape.content_bbox.height,
+                ))
+
+    # Route orthogonally around obstacles
+    waypoints = route_orthogonal(
+        Point(start_x, start_y),
+        Point(end_x, end_y),
+        obstacles,
+    )
+
+    # Convert waypoints to relative points (relative to arrow origin)
+    origin_x = waypoints[0].x
+    origin_y = waypoints[0].y
+    points = [[wp.x - origin_x, wp.y - origin_y] for wp in waypoints]
+
+    # Compute bounding box of points for arrow width/height
+    all_x = [p[0] for p in points]
+    all_y = [p[1] for p in points]
+    arr_w = max(all_x) - min(all_x) if all_x else 0
+    arr_h = max(all_y) - min(all_y) if all_y else 0
 
     # Stroke color from source shape theme
     source_theme = source_p.shape.color_theme
@@ -313,50 +402,39 @@ def _arrow_element(
     elif connector.direction == ArrowDirection.BOTH:
         start_arrowhead = "arrow"
         end_arrowhead = "arrow"
-    # NONE: both stay None
 
-    source_shape_elem_id = f"exc_shape_{connector.source_shape_id}"
-    target_shape_elem_id = f"exc_shape_{connector.target_shape_id}"
-
+    # No bindings — we've computed exact edge positions and routed paths.
+    # Bindings would override our carefully routed waypoints.
     arrow = _make_base_element(
         connector.id, "arrow",
-        src_cx, src_cy,
-        abs(dx), abs(dy),
+        origin_x, origin_y,
+        arr_w, arr_h,
         roughness=roughness,
         strokeColor=stroke_color,
         strokeWidth=stroke_width,
         strokeStyle=stroke_style,
-        points=[[0, 0], [dx, dy]],
-        startBinding={
-            "elementId": source_shape_elem_id,
-            "focus": 0,
-            "gap": 2,
-            "fixedPoint": None,
-        },
-        endBinding={
-            "elementId": target_shape_elem_id,
-            "focus": 0,
-            "gap": 2,
-            "fixedPoint": None,
-        },
+        points=points,
+        startBinding=None,
+        endBinding=None,
         startArrowhead=start_arrowhead,
         endArrowhead=end_arrowhead,
     )
 
-    # Optional label at the midpoint
+    # Optional label at the path midpoint
     label_elem = None
     if connector.label:
         label_id = f"{connector.id}_label"
-        mid_x = src_cx + dx / 2
-        mid_y = src_cy + dy / 2
+        # Find midpoint of the path
+        mid_idx = len(waypoints) // 2
+        mid_wp = waypoints[mid_idx]
         label_w = len(connector.label) * 8 + 16
         label_h = 24
         label_elem = _make_base_element(
             label_id, "text",
-            mid_x - label_w / 2, mid_y - label_h / 2,
+            mid_wp.x - label_w / 2, mid_wp.y - label_h / 2,
             label_w, label_h,
             roughness=0,
-            strokeColor="#555555",
+            strokeColor=_TEXT_COLOR_LIGHT_ON_DARK if dark else "#555555",
             backgroundColor="transparent",
             strokeWidth=1,
             text=connector.label,
@@ -498,38 +576,14 @@ def render_excalidraw_json(
             if text_elem is not None:
                 elements.append(text_elem)
 
-    # --- Pass 2: Arrows ---
-    arrow_elements: list[dict] = []
-
+    # --- Pass 2: Arrows (orthogonally routed, no bindings needed) ---
     for connector in connectors:
         arrow_elem, label_elem = _arrow_element(
             connector, placements_dict, canvas_padding, roughness, dark=dark,
         )
-
-        # Add arrow binding to source and target shape boundElements
-        arrow_binding = {"id": connector.id, "type": "arrow"}
-
-        source_shape = shape_elements_by_id.get(connector.source_shape_id)
-        if source_shape is not None:
-            bound = source_shape.get("boundElements")
-            if bound is None:
-                source_shape["boundElements"] = [arrow_binding]
-            else:
-                bound.append(arrow_binding)
-
-        target_shape = shape_elements_by_id.get(connector.target_shape_id)
-        if target_shape is not None:
-            bound = target_shape.get("boundElements")
-            if bound is None:
-                target_shape["boundElements"] = [arrow_binding]
-            else:
-                bound.append(arrow_binding)
-
-        arrow_elements.append(arrow_elem)
+        elements.append(arrow_elem)
         if label_elem is not None:
-            arrow_elements.append(label_elem)
-
-    elements.extend(arrow_elements)
+            elements.append(label_elem)
 
     # --- Assemble document ---
     return {

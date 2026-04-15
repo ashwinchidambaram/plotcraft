@@ -109,8 +109,8 @@ def test_color_theme_mapping():
         )
 
 
-def test_arrow_bindings_bidirectional():
-    """Arrow has startBinding/endBinding, and both shapes list the arrow in boundElements."""
+def test_arrow_routing():
+    """Arrows use orthogonal routing with multi-point paths."""
     d = Diagram()
     d.add("a", "Source", shape=ShapeKind.RECT, row=0, col=0)
     d.add("b", "Target", shape=ShapeKind.RECT, row=0, col=1)
@@ -122,21 +122,15 @@ def test_arrow_bindings_bidirectional():
     assert len(arrows) >= 1
     arrow = arrows[0]
 
-    # Arrow should bind to source and target shapes
-    assert arrow["startBinding"] is not None
-    assert arrow["startBinding"]["elementId"] == "exc_shape_a"
-    assert arrow["endBinding"] is not None
-    assert arrow["endBinding"]["elementId"] == "exc_shape_b"
+    # Arrow should have orthogonal points (at least start and end)
+    points = arrow.get("points", [])
+    assert len(points) >= 2, "Arrow should have at least 2 points"
 
-    # Both shapes should list the arrow in their boundElements
-    shape_a = find_elements(result, id_prefix="exc_shape_a")[0]
-    shape_b = find_elements(result, id_prefix="exc_shape_b")[0]
+    # First point should be at origin [0, 0]
+    assert points[0] == [0, 0], "First point should be [0, 0]"
 
-    arrow_id = arrow["id"]
-    bound_ids_a = [be["id"] for be in shape_a.get("boundElements", [])]
-    bound_ids_b = [be["id"] for be in shape_b.get("boundElements", [])]
-    assert arrow_id in bound_ids_a, "Arrow not found in source shape's boundElements"
-    assert arrow_id in bound_ids_b, "Arrow not found in target shape's boundElements"
+    # Arrow should be positioned on the canvas (not at 0, 0)
+    assert arrow["x"] > 0, "Arrow x should be positive (on canvas)"
 
 
 def test_arrow_directions():
