@@ -169,10 +169,30 @@ class Scene:
         s.save("output.excalidraw")
     """
 
-    def __init__(self, width: float = 1200, height: float = 800, dark: bool = False):
+    # D2 theme IDs: https://d2lang.com/tour/themes
+    THEMES = {
+        "default": 0,
+        "neutral": 1,
+        "earth": 3,
+        "grape": 4,
+        "ocean": 6,
+        "vanilla": 5,
+        "cool": 102,
+        "mixed": 104,
+        "dark": 200,
+    }
+
+    def __init__(
+        self,
+        width: float = 1200,
+        height: float = 800,
+        dark: bool = False,
+        theme: str = "default",
+    ):
         self.width = width
         self.height = height
         self.dark = dark
+        self.theme = theme
         self._elements: dict[str, Element] = {}
         self._connections: list[Connection] = []
         self._annotations: list[Annotation] = []
@@ -774,7 +794,7 @@ class Scene:
                     style_parts.append(f'style.stroke: "{src_colors[1]}"')
 
             if conn.label:
-                label = conn.label.replace("\n", "\\n")
+                label = conn.label.replace("\n", "\\n").replace("$", "")
                 line = f"{conn.source_id} -> {conn.target_id}: {label}"
             else:
                 line = f"{conn.source_id} -> {conn.target_id}"
@@ -825,10 +845,10 @@ class Scene:
                 "--layout", "dagre",
                 "--pad", "60",
             ]
-            if self.dark:
-                cmd.extend(["--theme", "200"])  # Dark theme
-            else:
-                cmd.extend(["--theme", "0"])   # Default light
+            theme_id = self.THEMES.get(self.theme, 0)
+            if self.dark and theme_id < 100:
+                theme_id = 200  # Force dark theme
+            cmd.extend(["--theme", str(theme_id)])
 
             cmd.extend([d2_path, output_path])
 

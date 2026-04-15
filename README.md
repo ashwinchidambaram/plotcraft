@@ -1,29 +1,25 @@
 # PlotCraft
 
-AI-friendly diagram engine — freeform Scene API with D2 rendering for LLM agents.
+**Better diagrams from your AI.** PlotCraft is a Python library that gives LLMs the ability to create clean, well-designed diagrams. You describe what you want, PlotCraft handles the layout and rendering.
 
-## What is this?
+## Why?
 
-PlotCraft is a Python library that lets AI agents create clean, well-designed diagrams without thinking in pixels or coordinates. The AI describes **elements and relationships**, PlotCraft generates D2 markup, and D2 handles layout, text centering, and arrow routing.
+AI-generated diagrams usually look terrible — misaligned text, arrows through shapes, everything the same size. PlotCraft fixes this by using [D2](https://d2lang.com) for intelligent layout and hand-drawn sketch rendering. The AI writes simple Python, D2 does the visual design.
 
-## Features
-
-- **Scene API** — declarative: describe what, not where
-- **D2 rendering** — sketch mode for hand-drawn aesthetic, dagre layout for intelligent positioning
-- **Role-based styling** — elements get shapes and colors from their semantic role (start, end, process, decision)
-- **Emphasis system** — `emphasis="high"` makes elements visually dominant
-- **Annotations** — floating context near any element
-- **Dark theme** — `Scene(dark=True)` for dark canvas with warm colors
-- **Multiple backends** — D2 (primary), Excalidraw JSON, SVG, draw.io XML
-
-## Prerequisites
+## Install
 
 ```bash
-# Install PlotCraft
-uv sync
+pip install plotcraft
+```
 
-# Install D2 (required for rendering)
+You'll also need D2 for rendering:
+
+```bash
+# macOS
 brew install d2
+
+# Linux
+curl -fsSL https://d2lang.com/install.sh | sh
 ```
 
 ## Quick Start
@@ -32,102 +28,112 @@ brew install d2
 from plotcraft import Scene
 
 s = Scene()
-s.add("How a commit becomes a release", role="title")
-s.add("Push Code", role="start")
-s.add("Run Tests", role="process", emphasis="high")
-s.add("Code Review", role="process")
-s.add("Deploy", role="end")
+s.add("How HTTPS keeps your data safe", role="title")
+s.add("You type a URL", role="start")
+s.add("TLS Handshake", role="process", emphasis="high")
+s.add("Certificate Check", role="decision")
+s.add("Encrypted Tunnel", role="process", size="large", emphasis="high")
+s.add("Page Loads", role="end")
 
-s.connect("Push Code", "Run Tests")
-s.connect("Run Tests", "Code Review")
-s.connect("Code Review", "Deploy")
+s.connect("You type a URL", "TLS Handshake")
+s.connect("TLS Handshake", "Certificate Check")
+s.connect("Certificate Check", "Encrypted Tunnel", label="valid")
+s.connect("Encrypted Tunnel", "Page Loads")
 
-s.annotate("Automated CI", near="Run Tests")
-
-s.add("Every step is automated", role="caption")
+s.annotate("AES-256 encryption", near="Encrypted Tunnel")
+s.add("Every request, invisible, in milliseconds", role="caption")
 
 s.layout("pipeline")
-s.save("pipeline.svg")  # D2 renders with sketch mode
+s.save("https.png")
 ```
 
-## Output Formats
+## How It Works
 
-| Format | Command | Backend | Dependencies |
-|--------|---------|---------|-------------|
-| `.svg` | `s.save("out.svg")` | D2 (default) | D2 CLI |
-| `.png` | `s.save("out.png")` | D2 (default) | D2 CLI |
-| `.d2` | `s.save("out.d2")` | D2 source | None |
-| `.excalidraw` | `s.save("out.excalidraw")` | Excalidraw JSON | None |
+1. **You describe elements** — give each a role (`start`, `process`, `decision`, `end`) and optionally `emphasis` and `size`
+2. **You connect them** — PlotCraft figures out the arrow routing
+3. **You pick a layout** — `pipeline`, `top_down`, `fan_out`, `cycle`, `decision_tree`, `convergence`
+4. **D2 renders it** — sketch mode for a hand-drawn aesthetic, dagre for intelligent positioning
 
-## Layout Patterns
+No coordinates. No anchor points. No grid cells. Just content and relationships.
+
+## Themes
+
+PlotCraft ships with 9 color themes:
 
 ```python
-s.layout("pipeline")       # horizontal left-to-right
-s.layout("top_down")       # vertical top-to-bottom
-s.layout("fan_out")        # one source, many targets
-s.layout("convergence")    # many sources, one target
-s.layout("cycle")          # circular loop
-s.layout("decision_tree")  # branching from root
+Scene(theme="default")   # clean blues
+Scene(theme="earth")     # warm browns
+Scene(theme="grape")     # rich purples
+Scene(theme="ocean")     # cool teals
+Scene(theme="vanilla")   # soft yellows
+Scene(theme="cool")      # muted pastels
+Scene(theme="mixed")     # colorful variety
+Scene(dark=True)         # dark mode
+```
+
+Run `python examples/gallery.py` to see all themes rendered side-by-side.
+
+## API Reference
+
+```python
+from plotcraft import Scene
+
+# Create a scene
+s = Scene(
+    dark=False,          # dark mode
+    theme="default",     # color scheme
+)
+
+# Add elements
+s.add(text,
+    role="process",      # title, subtitle, start, end, process, decision, caption
+    size="medium",       # small, medium, large, hero
+    emphasis="normal",   # low, normal, high
+)
+
+# Connect elements (by their text)
+s.connect(source, target,
+    label=None,          # text on the arrow
+    style="solid",       # solid, dashed, dotted
+    weight="normal",     # thin, normal, bold
+)
+
+# Add floating annotations
+s.annotate(text, near=element_text)
+
+# Choose layout and render
+s.layout("pipeline")     # pipeline, top_down, fan_out, convergence, cycle, decision_tree
+s.save("diagram.png")    # .png, .svg, .d2, .excalidraw
 ```
 
 ## Element Roles
 
-| Role | Shape | Use for |
-|------|-------|---------|
-| `"title"` | text | Diagram title |
-| `"subtitle"` | text | Section headers |
-| `"start"` | oval | Entry points |
-| `"end"` | oval | Terminal states |
-| `"process"` | rectangle | Steps, actions |
-| `"decision"` | diamond | Branch points |
-| `"caption"` | text | Closing insight |
+| Role | Shape | Best for |
+|------|-------|----------|
+| `"title"` | floating text | Diagram title — states the insight |
+| `"subtitle"` | floating text | Section headers |
+| `"start"` | oval | Entry points, triggers |
+| `"end"` | oval | Results, outcomes |
+| `"process"` | rectangle | Steps, actions, states |
+| `"decision"` | diamond | Branch points, conditions |
+| `"caption"` | floating text | Closing insight |
 
 ## Examples
 
 ```bash
-# Generate all Scene+D2 examples
-uv run python examples/demo_scene_d2_all.py
-
-# Generate GEPA research diagrams
-uv run python examples/demo_gepa_final.py
+# Generate the full gallery (12 diagrams across 6 subjects and 6 themes)
+uv run python examples/gallery.py
 ```
 
 ## Claude Code Skill
 
-The `skills/plotcraft-diagram/` directory contains a Claude Code skill that guides LLMs through creating effective diagrams with the Scene API.
+PlotCraft includes a Claude Code skill at `skills/plotcraft-diagram/` that teaches AI assistants the design methodology — when to use which layout, how to pick roles, and how to write effective diagram titles.
 
-## Project Structure
-
-```
-plotcraft/
-├── src/plotcraft/
-│   ├── scene.py              # PRIMARY: Scene API + D2/Excalidraw backends
-│   ├── diagram.py            # Legacy grid-based API
-│   ├── excalidraw_renderer.py # Excalidraw JSON generation
-│   ├── advisor.py            # Design pattern advisor
-│   └── ...                   # Grid, shapes, routing, SVG, draw.io
-├── tests/                    # 143 tests
-├── examples/                 # Example scripts
-├── skills/plotcraft-diagram/ # Claude Code skill
-└── pyproject.toml
-```
-
-## Running Tests
+## Development
 
 ```bash
+git clone https://github.com/your-username/plotcraft
+cd plotcraft
+uv sync
 uv run pytest
-```
-
-## Legacy API
-
-The original grid-based `Diagram` API is still available for backward compatibility:
-
-```python
-from plotcraft import Diagram, ShapeKind, ColorTheme
-
-d = Diagram()
-d.add("a", "Start", shape=ShapeKind.OVAL, color=ColorTheme.START, row=0, col=0)
-d.add("b", "End", shape=ShapeKind.OVAL, color=ColorTheme.END, row=0, col=1)
-d.connect("a", "b")
-d.save("diagram.excalidraw")
 ```
