@@ -1,7 +1,8 @@
-"""PlotCraft — AI-friendly diagram engine for generating grid-snapped SVG diagrams."""
+"""PlotCraft — AI-friendly diagram engine with freeform Scene API and D2 rendering."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
+from plotcraft.scene import Scene
 from plotcraft.types import (
     TextRole, ShapeKind, TextAlign, AnchorName, ArrowDirection,
     ConnectorStyle, LineWeight, RoutingStyle, SectionStyle, ColorTheme,
@@ -14,6 +15,9 @@ from plotcraft.wobble import WobbleConfig
 from plotcraft.advisor import VisualPattern, PATTERNS, SHAPE_SEMANTICS, suggest_pattern, validate_diagram
 
 __all__ = [
+    # Primary API
+    "Scene",
+    # Legacy grid-based API
     "Diagram",
     "TextRole",
     "ShapeKind",
@@ -30,7 +34,6 @@ __all__ = [
     "TimelineEntry",
     "TreeNode",
     "WobbleConfig",
-    # visual essay types
     "ThemeMode",
     "DecorativeKind",
     "CalloutPosition",

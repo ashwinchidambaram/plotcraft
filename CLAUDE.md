@@ -1,23 +1,29 @@
 # PlotCraft
 
-AI-friendly diagram engine — text-driven, grid-snapped SVG/draw.io generation for LLM agents.
+AI-friendly diagram engine — freeform Scene API with D2 rendering for LLM agents.
 
 ## Tech Stack
 
 - Python 3.12+
 - uv (package manager)
-- Pure Python SVG generation (self-contained, no external dependencies)
-- Optional: draw.io desktop app for high-quality rendering
+- D2 (`d2lang.com`) — layout engine + sketch-mode rendering (installed at /opt/homebrew/bin/d2)
+- Excalidraw JSON — alternative hand-drawn output format
+- Pure Python SVG generation (legacy, self-contained)
 
 ## Directory Structure
 
 ```
 plotcraft/
 ├── src/plotcraft/       # Main package
+│   ├── scene.py         # PRIMARY: Freeform Scene API with D2/Excalidraw backends
+│   ├── diagram.py       # Legacy grid-based Diagram API
+│   └── ...              # Grid, shapes, routing, renderers
 ├── tests/               # Test suite (pytest)
 ├── examples/            # Example diagram scripts
+│   ├── demo_scene_d2_all.py  # All 5 Scene+D2 examples
+│   └── renders/              # Generated SVG/PNG outputs
 ├── skills/              # Claude Code skills
-│   └── plotcraft-diagram/ # Diagram creation skill with design methodology
+│   └── plotcraft-diagram/    # Diagram creation skill with design methodology
 ├── docs/                # Documentation and specs
 ├── ref/                 # Design references (Figma, Google AI Studio)
 └── pyproject.toml       # Project config (uv-managed)
@@ -25,36 +31,48 @@ plotcraft/
 
 ## Architecture
 
-### Core Pipeline
+### Primary: Scene API + D2
 
-1. **Diagram API** (`diagram.py`) — fluent builder: `.add()`, `.connect()`, `.section()`, `.callout()`, `.note()`, `.decorate()`, `.render()`
+The recommended workflow for creating diagrams:
+
+1. **Scene API** (`scene.py`) — freeform declarative API where the LLM describes WHAT (elements, connections, roles) and the engine decides WHERE
+2. **D2 Backend** — generates D2 markup, renders via D2 CLI with `--sketch` for hand-drawn aesthetic. D2's dagre layout handles text centering, arrow routing, and element positioning.
+3. **Excalidraw Backend** — alternative output generating `.excalidraw` JSON directly with computed pixel positions
+
+```python
+from plotcraft import Scene
+
+s = Scene()
+s.add("Start", role="start")
+s.add("Process", role="process", emphasis="high")
+s.add("End", role="end")
+s.connect("Start", "Process")
+s.connect("Process", "End")
+s.layout("pipeline")
+s.save("diagram.svg")  # D2 rendering (default)
+```
+
+### Legacy: Grid-based Diagram API
+
+The original grid-based API remains for backward compatibility:
+
+1. **Diagram API** (`diagram.py`) — fluent builder: `.add()`, `.connect()`, `.section()`, `.render()`
 2. **Grid** (`grid.py`) — cell-based placement, auto-place, cell spanning
-3. **Shapes** (`shapes.py`) — auto-sizing, anchor resolution (shape-aware: diamond vertices, circle circumference)
-4. **Routing** (`routing.py`) — orthogonal L/Z/U routing around obstacles with rounded corners
-5. **Connectors** (`connectors.py`) — routing integration, bezier fallback
-6. **Excalidraw Renderer** (`excalidraw_renderer.py`) — **primary output**, generates `.excalidraw` JSON with hand-drawn aesthetic (roughness=1), Terracotta/Sage/Gold palette, dark theme support
-7. **SVG Renderer** (`svg.py`) — hand-drawn wobble aesthetic, Google Fonts, translucent fills
-8. **Draw.io Renderer** (`drawio_renderer.py`) — generates `.drawio` XML for high-quality export
-9. **Advisor** (`advisor.py`) — 10 visual pattern suggestions, diagram validation
+3. **Shapes/Routing/Connectors** — auto-sizing, anchor resolution, orthogonal routing
+4. **Renderers** — Excalidraw JSON, SVG (wobble), draw.io XML
+5. **Advisor** (`advisor.py`) — 10 visual pattern suggestions, diagram validation
 
 ### Design System
 
-- Fonts: Caveat (titles), Patrick Hand (body), Indie Flower (captions)
-- Colors: 9 semantic themes with translucent fills (0.5-0.6 opacity)
-- Canvas: #fdf6e3 (warm cream)
-- Wobble: seeded random noise for hand-drawn paths
-- Grid: 160x120 cells (SVG), 260x160 recommended for draw.io and Excalidraw
-
-### Triple Output
-
-- **Excalidraw** (primary): Hand-drawn aesthetic via roughness=1, Terracotta/Sage/Gold palette, Playwright PNG verification
-- **SVG**: Self-contained, pip-installable, hand-drawn wobble aesthetic
-- **Draw.io**: Higher quality routing/text, requires draw.io app
+- **D2 output**: Sketch mode (hand-drawn), semantic colors (Terracotta/Sage/Gold), dagre layout
+- **Excalidraw output**: roughness=1, fontFamily=3, Terracotta/Sage/Gold palette on Sand canvas (#F9F7F4)
+- **SVG output** (legacy): Caveat/Patrick Hand/Indie Flower fonts, wobble paths, cream canvas
 
 ## Conventions
 
 - Tests go in `tests/` with `test_` prefix
 - Run tests: `uv run pytest`
-- Examples go in `examples/`
-- Generated outputs (*.png, *.drawio) are gitignored
+- Examples go in `examples/`, renders in `examples/renders/`
+- Generated outputs (*.png, *.svg, *.drawio, *.excalidraw) are gitignored (except renders/)
 - The plotcraft-diagram skill at `skills/plotcraft-diagram/` embeds design methodology
+- Scene API is the primary API; Diagram API is legacy
