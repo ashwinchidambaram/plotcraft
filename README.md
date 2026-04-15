@@ -6,6 +6,35 @@
 
 AI-generated diagrams usually look terrible — misaligned text, arrows through shapes, everything the same size. PlotCraft fixes this by using [D2](https://d2lang.com) for intelligent layout and hand-drawn sketch rendering. The AI writes simple Python, D2 does the visual design.
 
+## Examples
+
+<p align="center">
+  <img src="examples/renders/https.png" alt="HTTPS diagram" width="90%" />
+</p>
+
+<p align="center">
+  <img src="examples/renders/startup.png" alt="Startup funding journey" width="90%" />
+</p>
+
+<p align="center">
+  <img src="examples/renders/git.png" alt="How Git works" width="90%" />
+</p>
+
+### Themes
+
+The same diagram in different color schemes:
+
+<p align="center">
+  <img src="examples/renders/theme_default.png" alt="Default theme" width="30%" />
+  <img src="examples/renders/theme_earth.png" alt="Earth theme" width="30%" />
+  <img src="examples/renders/theme_grape.png" alt="Grape theme" width="30%" />
+</p>
+<p align="center">
+  <img src="examples/renders/theme_ocean.png" alt="Ocean theme" width="30%" />
+  <img src="examples/renders/theme_cool.png" alt="Cool theme" width="30%" />
+  <img src="examples/renders/theme_mixed.png" alt="Mixed theme" width="30%" />
+</p>
+
 ## Install
 
 ```bash
@@ -71,8 +100,6 @@ Scene(theme="mixed")     # colorful variety
 Scene(dark=True)         # dark mode
 ```
 
-Run `python examples/gallery.py` to see all themes rendered side-by-side.
-
 ## API Reference
 
 ```python
@@ -118,13 +145,6 @@ s.save("diagram.png")    # .png, .svg, .d2, .excalidraw
 | `"decision"` | diamond | Branch points, conditions |
 | `"caption"` | floating text | Closing insight |
 
-## Examples
-
-```bash
-# Generate the full gallery (12 diagrams across 6 subjects and 6 themes)
-uv run python examples/gallery.py
-```
-
 ## Claude Code Skill
 
 PlotCraft includes a Claude Code skill at `skills/plotcraft-diagram/` that teaches AI assistants the design methodology — when to use which layout, how to pick roles, and how to write effective diagram titles.
@@ -132,7 +152,7 @@ PlotCraft includes a Claude Code skill at `skills/plotcraft-diagram/` that teach
 ## Development
 
 ```bash
-git clone https://github.com/your-username/plotcraft
+git clone https://github.com/ashwinchidambaram/plotcraft
 cd plotcraft
 uv sync
 uv run pytest

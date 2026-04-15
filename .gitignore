@@ -29,11 +29,9 @@ Thumbs.db
 .claude/worklog.md
 
 # Generated diagram outputs (build artifacts)
-*.png
 *.drawio
 *.excalidraw
-*.svg
 tests/visual/screenshots/
-examples/renders/
 
-# Keep example scripts tracked, not their outputs
+# Tracked assets and example renders are explicitly added
+# (use git add -f for new renders)
