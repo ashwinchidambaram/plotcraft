@@ -134,32 +134,7 @@ class Diagram:
 
         routed = route_all(self._connectors, placements_dict, routing=self._routing)
 
-        # Compute section bounds
-        sections = []
-        for sec in self._sections:
-            style: SectionStyle = sec["style"]
-            padding = style.padding
-            label_height = style.label_font_size + 10.0
-
-            min_x = float("inf")
-            min_y = float("inf")
-            max_x = float("-inf")
-            max_y = float("-inf")
-            for sid in sec["shape_ids"]:
-                p = placements_dict[sid]
-                bb = p.bounding_box
-                min_x = min(min_x, bb.x)
-                min_y = min(min_y, bb.y)
-                max_x = max(max_x, bb.x + bb.width)
-                max_y = max(max_y, bb.y + bb.height)
-
-            bounds = BBox(
-                x=min_x - padding,
-                y=min_y - padding - label_height,
-                width=(max_x - min_x) + 2 * padding,
-                height=(max_y - min_y) + 2 * padding + label_height,
-            )
-            sections.append((sec["label"], bounds, style))
+        sections = self._compute_sections(placements_dict)
 
         # Build structure SVG fragments
         structure_fragments: list[str] = []
@@ -198,7 +173,14 @@ class Diagram:
         webbrowser.open(f"file://{path}")
 
     def save(self, path: str, scale: float = 2.0) -> None:
-        """Render and write to file. Detects format from extension (.svg, .png, .drawio)."""
+        """Render and write to file. Detects format from extension (.svg, .png, .drawio, .excalidraw)."""
+        if path.lower().endswith(".excalidraw"):
+            import json
+            data = self.render_excalidraw()
+            with open(path, "w") as f:
+                json.dump(data, f, indent=2)
+            return
+
         if path.lower().endswith(".drawio"):
             xml = self.render_drawio()
             with open(path, "w") as f:
@@ -220,17 +202,8 @@ class Diagram:
             with open(path, "w") as f:
                 f.write(svg)
 
-    def render_drawio(self) -> str:
-        """Generate .drawio XML representation of the diagram.
-
-        This produces a draw.io-compatible XML file that can be opened
-        in the draw.io desktop app or web editor for further editing.
-        """
-        from plotcraft.drawio_renderer import render_drawio_xml
-        placements = self._grid.all_placements()
-        placements_dict = {p.shape.id: p for p in placements}
-
-        # Compute section bounds (same logic as render())
+    def _compute_sections(self, placements_dict: dict[str, object]) -> list:
+        """Compute section bounds from shape placements."""
         sections = []
         for sec in self._sections:
             style: SectionStyle = sec["style"]
@@ -254,7 +227,29 @@ class Diagram:
                 height=(max_y - min_y) + 2 * padding + label_height,
             )
             sections.append((sec["label"], bounds, style))
+        return sections
 
+    def render_excalidraw(self) -> dict:
+        """Generate Excalidraw JSON dict representation of the diagram."""
+        from plotcraft.excalidraw_renderer import render_excalidraw_json
+        placements = self._grid.all_placements()
+        placements_dict = {p.shape.id: p for p in placements}
+        sections = self._compute_sections(placements_dict)
+        canvas_size = self._grid.canvas_size()
+        return render_excalidraw_json(
+            placements, self._connectors, canvas_size, sections,
+        )
+
+    def render_drawio(self) -> str:
+        """Generate .drawio XML representation of the diagram.
+
+        This produces a draw.io-compatible XML file that can be opened
+        in the draw.io desktop app or web editor for further editing.
+        """
+        from plotcraft.drawio_renderer import render_drawio_xml
+        placements = self._grid.all_placements()
+        placements_dict = {p.shape.id: p for p in placements}
+        sections = self._compute_sections(placements_dict)
         canvas_size = self._grid.canvas_size()
         return render_drawio_xml(
             placements, self._connectors, canvas_size, sections,
