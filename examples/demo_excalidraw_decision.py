@@ -1,4 +1,4 @@
-"""Decision tree: How to choose a database — rendered to Excalidraw."""
+"""Decision tree: How to pick your database — rendered to Excalidraw."""
 
 from plotcraft import (
     Diagram, TextRole, ShapeKind, AnchorName,
@@ -6,64 +6,53 @@ from plotcraft import (
     CalloutPosition,
 )
 
-d = Diagram(grid_config=GridConfig(cell_width=260, cell_height=160, margin=30))
+# LAYOUT TABLE:
+# row=0: title (col=1)
+# row=1: start (col=1)
+# row=3: decision (col=1)
+# row=5: relational (col=0), document (col=2)
+# row=6: callout_pg (col=0), callout_mongo (col=2)
+# row=7: caption (col=1)
+
+d = Diagram(grid_config=GridConfig(cell_width=280, cell_height=160, margin=30))
 
 # Title
-d.add("title", "How to Choose a Database",
-      role=TextRole.TITLE, shape=ShapeKind.NONE, row=0, col=2)
+d.add("title", "How to pick your database",
+      role=TextRole.TITLE, shape=ShapeKind.NONE, row=0, col=1)
 
-# Entry point
-d.add("start", "New Project\nNeeds a DB", shape=ShapeKind.OVAL, color=ColorTheme.START, row=1, col=2)
+# Entry
+d.add("start", "New Project", shape=ShapeKind.OVAL, color=ColorTheme.START, row=1, col=1)
 
-# Central decision diamond
-d.add("q1", "Structured\ndata?", shape=ShapeKind.DIAMOND, color=ColorTheme.DECISION, row=3, col=2)
+# Decision — short text for diamond
+d.add("q1", "Structured?", shape=ShapeKind.DIAMOND, color=ColorTheme.DECISION, row=3, col=1)
 
-# Connect start -> decision (skip row 2 for vertical connector)
 d.connect("start", "q1",
           source_anchor=AnchorName.BOTTOM_CENTER,
           target_anchor=AnchorName.TOP_CENTER,
           line_weight=LineWeight.BOLD)
 
-# Left branch: structured -> relational vs analytical
-d.add("relational", "Relational DB\n(PostgreSQL)", shape=ShapeKind.RECT, color=ColorTheme.INFO, row=3, col=0)
-d.connect("q1", "relational",
+# Two branches
+d.add("sql", "PostgreSQL", shape=ShapeKind.RECT, color=ColorTheme.INFO, row=5, col=0)
+d.add("nosql", "MongoDB", shape=ShapeKind.RECT, color=ColorTheme.HIGHLIGHT, row=5, col=2)
+
+d.connect("q1", "sql",
           source_anchor=AnchorName.LEFT_CENTER,
-          target_anchor=AnchorName.RIGHT_CENTER,
-          label="Yes")
-
-# Right branch: unstructured -> document vs graph
-d.add("nosql_q", "Relationships\nmatter?", shape=ShapeKind.DIAMOND, color=ColorTheme.DECISION, row=3, col=4)
-d.connect("q1", "nosql_q",
+          target_anchor=AnchorName.TOP_CENTER,
+          label="Yes", line_weight=LineWeight.BOLD)
+d.connect("q1", "nosql",
           source_anchor=AnchorName.RIGHT_CENTER,
-          target_anchor=AnchorName.LEFT_CENTER,
-          label="No")
-
-# NoSQL branches
-d.add("document", "Document Store\n(MongoDB)", shape=ShapeKind.RECT, color=ColorTheme.HIGHLIGHT, row=5, col=3)
-d.add("graph", "Graph DB\n(Neo4j)", shape=ShapeKind.RECT, color=ColorTheme.SUCCESS, row=5, col=5)
-
-d.connect("nosql_q", "document",
-          source_anchor=AnchorName.BOTTOM_LEFT,
           target_anchor=AnchorName.TOP_CENTER,
-          label="No")
-d.connect("nosql_q", "graph",
-          source_anchor=AnchorName.BOTTOM_RIGHT,
-          target_anchor=AnchorName.TOP_CENTER,
-          label="Yes")
+          label="No", line_weight=LineWeight.BOLD)
 
-# Callouts explaining when to use each
-d.callout("c_pg", "ACID compliance,\ncomplex queries,\njoins galore",
-          "relational", position=CalloutPosition.BELOW, color=ColorTheme.INFO)
-
-d.callout("c_mongo", "Flexible schema,\nrapid iteration,\nJSON-native",
-          "document", position=CalloutPosition.BELOW, color=ColorTheme.HIGHLIGHT)
-
-d.callout("c_neo", "Social networks,\nfraud detection,\npath queries",
-          "graph", position=CalloutPosition.BELOW, color=ColorTheme.SUCCESS)
+# Callouts for each choice
+d.callout("c_sql", "ACID, joins,\ncomplex queries",
+          "sql", position=CalloutPosition.BELOW)
+d.callout("c_nosql", "Flexible schema,\nrapid iteration",
+          "nosql", position=CalloutPosition.BELOW)
 
 # Caption
-d.add("caption", "Start with the simplest option that fits your access patterns",
-      role=TextRole.CAPTION, shape=ShapeKind.NONE, row=7, col=2)
+d.add("caption", "Start simple, migrate when you outgrow it",
+      role=TextRole.CAPTION, shape=ShapeKind.NONE, row=8, col=1)
 
 d.save("examples/decision.excalidraw")
 print("Saved examples/decision.excalidraw")
