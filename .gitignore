@@ -32,6 +32,8 @@ Thumbs.db
 *.png
 *.drawio
 *.excalidraw
+*.svg
 tests/visual/screenshots/
+examples/renders/
 
-# Keep example outputs tracked explicitly with git add -f
+# Keep example scripts tracked, not their outputs

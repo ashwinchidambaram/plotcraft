@@ -1,90 +1,133 @@
 # PlotCraft
 
-AI-friendly diagram engine — text-driven, grid-snapped diagram generation for LLM agents. Outputs SVG (self-contained) or draw.io XML (high-quality rendering).
+AI-friendly diagram engine — freeform Scene API with D2 rendering for LLM agents.
 
 ## What is this?
 
-PlotCraft is a Python library that lets AI agents create clean, well-laid-out diagrams without thinking in pixels or coordinates. The AI describes **content and relationships**, and PlotCraft handles geometry, layout, and rendering.
+PlotCraft is a Python library that lets AI agents create clean, well-designed diagrams without thinking in pixels or coordinates. The AI describes **elements and relationships**, PlotCraft generates D2 markup, and D2 handles layout, text centering, and arrow routing.
 
 ## Features
 
-- **Text-driven containers** — shapes auto-scale to fit text content
-- **Grid-snapped layout** — bounding boxes snap to a grid, preventing overlaps
-- **Orthogonal routing** — connectors route around shapes with right-angle paths and rounded corners
-- **Shape-aware anchors** — connectors attach to actual shape edges (diamond vertices, circle circumference)
-- **Hand-drawn aesthetic** — wobbly paths, handwriting fonts, translucent fills (SVG output)
-- **Draw.io export** — `.drawio` files for high-quality rendering via draw.io app
-- **Design advisor** — pattern suggestions and diagram validation based on visual design methodology
-- **9 color themes** — semantic colors (start, end, decision, error, highlight, info, success, warning)
-- **6 shape types** — rect, square, circle, oval, diamond, free-text
+- **Scene API** — declarative: describe what, not where
+- **D2 rendering** — sketch mode for hand-drawn aesthetic, dagre layout for intelligent positioning
+- **Role-based styling** — elements get shapes and colors from their semantic role (start, end, process, decision)
+- **Emphasis system** — `emphasis="high"` makes elements visually dominant
+- **Annotations** — floating context near any element
+- **Dark theme** — `Scene(dark=True)` for dark canvas with warm colors
+- **Multiple backends** — D2 (primary), Excalidraw JSON, SVG, draw.io XML
 
-## Setup
+## Prerequisites
 
 ```bash
+# Install PlotCraft
 uv sync
+
+# Install D2 (required for rendering)
+brew install d2
 ```
 
 ## Quick Start
 
 ```python
-from plotcraft import *
+from plotcraft import Scene
 
-d = Diagram(grid_config=GridConfig(cell_width=260, cell_height=160, margin=30))
+s = Scene()
+s.add("How a commit becomes a release", role="title")
+s.add("Push Code", role="start")
+s.add("Run Tests", role="process", emphasis="high")
+s.add("Code Review", role="process")
+s.add("Deploy", role="end")
 
-d.add("title", "How code reaches production",
-      role=TextRole.TITLE, shape=ShapeKind.NONE, row=0, col=1)
-d.add("commit", "Push", shape=ShapeKind.OVAL, color=ColorTheme.START, row=1, col=0)
-d.add("ci", "Run CI", shape=ShapeKind.RECT, row=1, col=1)
-d.add("deploy", "Deploy", shape=ShapeKind.OVAL, color=ColorTheme.END, row=1, col=2)
+s.connect("Push Code", "Run Tests")
+s.connect("Run Tests", "Code Review")
+s.connect("Code Review", "Deploy")
 
-d.connect("commit", "ci")
-d.connect("ci", "deploy")
+s.annotate("Automated CI", near="Run Tests")
 
-d.save("pipeline.drawio")  # Open in draw.io for best quality
-d.save("pipeline.svg")     # Self-contained SVG
+s.add("Every step is automated", role="caption")
+
+s.layout("pipeline")
+s.save("pipeline.svg")  # D2 renders with sketch mode
 ```
 
 ## Output Formats
 
-| Format | Command | Quality | Dependencies |
+| Format | Command | Backend | Dependencies |
 |--------|---------|---------|-------------|
-| `.drawio` | `d.save("out.drawio")` | Best (via draw.io app) | draw.io desktop app |
-| `.svg` | `d.save("out.svg")` | Good (hand-drawn style) | None |
-| `.png` | `d.save("out.png")` | Good | cairosvg |
+| `.svg` | `s.save("out.svg")` | D2 (default) | D2 CLI |
+| `.png` | `s.save("out.png")` | D2 (default) | D2 CLI |
+| `.d2` | `s.save("out.d2")` | D2 source | None |
+| `.excalidraw` | `s.save("out.excalidraw")` | Excalidraw JSON | None |
 
-## Claude Skill
+## Layout Patterns
 
-The `skills/plotcraft-diagram/` directory contains a Claude Code skill that guides LLMs through creating effective diagrams. It embeds design methodology from Patrick Winston's MIT communication framework and Excalidraw's visual design system.
+```python
+s.layout("pipeline")       # horizontal left-to-right
+s.layout("top_down")       # vertical top-to-bottom
+s.layout("fan_out")        # one source, many targets
+s.layout("convergence")    # many sources, one target
+s.layout("cycle")          # circular loop
+s.layout("decision_tree")  # branching from root
+```
 
-Install: `ln -s /path/to/plotcraft/skills/plotcraft-diagram ~/.claude/skills/plotcraft-diagram`
+## Element Roles
+
+| Role | Shape | Use for |
+|------|-------|---------|
+| `"title"` | text | Diagram title |
+| `"subtitle"` | text | Section headers |
+| `"start"` | oval | Entry points |
+| `"end"` | oval | Terminal states |
+| `"process"` | rectangle | Steps, actions |
+| `"decision"` | diamond | Branch points |
+| `"caption"` | text | Closing insight |
+
+## Examples
+
+```bash
+# Generate all Scene+D2 examples
+uv run python examples/demo_scene_d2_all.py
+
+# Generate GEPA research diagrams
+uv run python examples/demo_gepa_final.py
+```
+
+## Claude Code Skill
+
+The `skills/plotcraft-diagram/` directory contains a Claude Code skill that guides LLMs through creating effective diagrams with the Scene API.
 
 ## Project Structure
 
 ```
 plotcraft/
-├── src/plotcraft/        # Main package
-│   ├── diagram.py        # Public API (Diagram class)
-│   ├── types.py          # Enums, dataclasses, defaults
-│   ├── shapes.py         # Shape creation + anchor resolution
-│   ├── grid.py           # Grid-based layout
-│   ├── connectors.py     # Connector routing (orthogonal + bezier)
-│   ├── routing.py         # Orthogonal path router
-│   ├── svg.py            # SVG renderer (hand-drawn wobble)
-│   ├── wobble.py         # Hand-drawn path noise
-│   ├── drawio_renderer.py # Draw.io XML generation
-│   ├── advisor.py        # Design pattern advisor
-│   ├── structures.py     # Timelines and trees
-│   └── text.py           # Font metrics and text measurement
-├── tests/                # Test suite
-├── examples/             # Example diagram scripts
-├── skills/               # Claude Code skills
-│   └── plotcraft-diagram/ # Diagram creation skill
-├── docs/                 # Documentation and specs
-└── ref/                  # Design references
+├── src/plotcraft/
+│   ├── scene.py              # PRIMARY: Scene API + D2/Excalidraw backends
+│   ├── diagram.py            # Legacy grid-based API
+│   ├── excalidraw_renderer.py # Excalidraw JSON generation
+│   ├── advisor.py            # Design pattern advisor
+│   └── ...                   # Grid, shapes, routing, SVG, draw.io
+├── tests/                    # 143 tests
+├── examples/                 # Example scripts
+├── skills/plotcraft-diagram/ # Claude Code skill
+└── pyproject.toml
 ```
 
 ## Running Tests
 
 ```bash
 uv run pytest
+```
+
+## Legacy API
+
+The original grid-based `Diagram` API is still available for backward compatibility:
+
+```python
+from plotcraft import Diagram, ShapeKind, ColorTheme
+
+d = Diagram()
+d.add("a", "Start", shape=ShapeKind.OVAL, color=ColorTheme.START, row=0, col=0)
+d.add("b", "End", shape=ShapeKind.OVAL, color=ColorTheme.END, row=0, col=1)
+d.connect("a", "b")
+d.save("diagram.excalidraw")
 ```
