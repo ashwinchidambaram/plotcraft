@@ -253,6 +253,7 @@ class Scene:
 
     def layout(self, pattern: str = "pipeline") -> Scene:
         """Compute positions for all elements based on the pattern."""
+        self._layout_pattern = pattern
         # Separate by role
         titles = [e for e in self._elements.values() if e.role == "title"]
         subtitles = [e for e in self._elements.values() if e.role == "subtitle"]
@@ -611,11 +612,217 @@ class Scene:
             "files": {},
         }
 
-    def save(self, path: str) -> None:
-        """Save as Excalidraw JSON."""
-        data = self.to_excalidraw()
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2)
+    def save(self, path: str, engine: str = "auto") -> None:
+        """Save diagram to file.
+
+        Args:
+            path: Output file path. Extension determines format:
+                  .excalidraw → Excalidraw JSON
+                  .svg → SVG (uses D2 if engine="d2" or "auto")
+                  .png → PNG (uses D2 if engine="d2" or "auto")
+                  .d2 → D2 source markup
+            engine: "excalidraw", "d2", or "auto" (default).
+                    "auto" uses D2 for .svg/.png, Excalidraw for .excalidraw.
+        """
+        ext = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+
+        if ext == "excalidraw":
+            data = self.to_excalidraw()
+            with open(path, "w") as f:
+                json.dump(data, f, indent=2)
+        elif ext == "d2":
+            with open(path, "w") as f:
+                f.write(self.to_d2())
+        elif ext in ("svg", "png"):
+            use_d2 = engine in ("d2", "auto")
+            if use_d2:
+                self._render_d2(path, ext)
+            else:
+                # Fallback: save as excalidraw (no built-in SVG/PNG from Scene)
+                exc_path = path.rsplit(".", 1)[0] + ".excalidraw"
+                data = self.to_excalidraw()
+                with open(exc_path, "w") as f:
+                    json.dump(data, f, indent=2)
+        else:
+            # Default: Excalidraw JSON
+            data = self.to_excalidraw()
+            with open(path, "w") as f:
+                json.dump(data, f, indent=2)
+
+    # ------------------------------------------------------------------
+    # D2 generation
+    # ------------------------------------------------------------------
+
+    def to_d2(self) -> str:
+        """Generate D2 markup from the scene.
+
+        Title and caption are rendered using D2's `near` keyword to keep
+        them out of the graph layout. Flow direction is set based on
+        the layout pattern.
+        """
+        lines: list[str] = []
+
+        d2_shapes = {
+            "start": "oval",
+            "end": "oval",
+            "process": "rectangle",
+            "decision": "diamond",
+        }
+
+        # Determine flow direction from the layout pattern
+        pattern = getattr(self, "_layout_pattern", "pipeline")
+        if pattern in ("pipeline",):
+            lines.append("direction: right")
+        else:
+            lines.append("direction: down")
+        lines.append("")
+
+        # Title/subtitle/caption use `near` to stay out of the layout
+        for elem in self._elements.values():
+            if elem.role == "title":
+                lines.append(f"{elem.id}: {elem.text} {{")
+                lines.append("  shape: text")
+                lines.append("  style.font-size: 28")
+                lines.append("  style.bold: true")
+                lines.append(f'  style.font-color: "{_ROLE_COLORS_DARK["title"][2] if self.dark else _ROLE_COLORS_LIGHT["title"][2]}"')
+                lines.append("  near: top-center")
+                lines.append("}")
+                lines.append("")
+            elif elem.role == "subtitle":
+                lines.append(f"{elem.id}: {elem.text} {{")
+                lines.append("  shape: text")
+                lines.append("  style.font-size: 20")
+                lines.append("  style.bold: true")
+                lines.append(f'  style.font-color: "{_ROLE_COLORS_DARK["subtitle"][2] if self.dark else _ROLE_COLORS_LIGHT["subtitle"][2]}"')
+                lines.append("  near: top-center")
+                lines.append("}")
+                lines.append("")
+            elif elem.role == "caption":
+                lines.append(f"{elem.id}: {elem.text} {{")
+                lines.append("  shape: text")
+                lines.append("  style.font-size: 13")
+                lines.append(f'  style.font-color: "{_ROLE_COLORS_DARK["caption"][2] if self.dark else _ROLE_COLORS_LIGHT["caption"][2]}"')
+                lines.append("  near: bottom-center")
+                lines.append("}")
+                lines.append("")
+
+        # Flow elements (shapes that participate in the graph)
+        for elem in self._elements.values():
+            if elem.role in ("title", "subtitle", "caption", "annotation"):
+                continue
+
+            shape = d2_shapes.get(elem.role, "rectangle")
+            colors = self._get_colors(elem)
+            fill, stroke, text_color = colors
+
+            label = elem.text.replace("\n", "\\n")
+            lines.append(f"{elem.id}: {label} {{")
+            lines.append(f"  shape: {shape}")
+
+            font_size = _ROLE_FONT.get(elem.role, (16, "center"))[0]
+            lines.append(f"  style.font-size: {font_size}")
+
+            if fill and fill != "transparent":
+                lines.append(f'  style.fill: "{fill}"')
+            if stroke and stroke != "transparent":
+                lines.append(f'  style.stroke: "{stroke}"')
+            if text_color:
+                lines.append(f'  style.font-color: "{text_color}"')
+
+            if elem.emphasis == "high" and elem.role not in ("title", "subtitle", "caption"):
+                lines.append("  style.stroke-width: 3")
+                lines.append("  style.shadow: true")
+            elif elem.emphasis == "low":
+                lines.append("  style.opacity: 0.6")
+
+            lines.append("}")
+            lines.append("")
+
+        # Annotations: connected to targets with subtle dashed lines
+        for ann in self._annotations:
+            label = ann.text.replace("\n", "\\n")
+            ann_color = _ROLE_COLORS_DARK["annotation"][2] if self.dark else _ROLE_COLORS_LIGHT["annotation"][2]
+            lines.append(f"{ann.id}: {label} {{")
+            lines.append("  shape: text")
+            lines.append("  style.font-size: 13")
+            lines.append(f'  style.font-color: "{ann_color}"')
+            lines.append("}")
+            lines.append(f"{ann.near_id} -- {ann.id} {{")
+            lines.append("  style.stroke-dash: 3")
+            lines.append("  style.opacity: 0.3")
+            lines.append("}")
+            lines.append("")
+
+        # Connections
+        for conn in self._connections:
+            style_parts: list[str] = []
+
+            if conn.style == "dashed":
+                style_parts.append("style.stroke-dash: 5")
+            elif conn.style == "dotted":
+                style_parts.append("style.stroke-dash: 2")
+
+            weight_map = {"thin": 1, "normal": 2, "bold": 3}
+            sw = weight_map.get(conn.weight, 2)
+            if sw != 2:
+                style_parts.append(f"style.stroke-width: {sw}")
+
+            src_elem = self._elements.get(conn.source_id)
+            if src_elem:
+                src_colors = self._get_colors(src_elem)
+                if src_colors[1] and src_colors[1] != "transparent":
+                    style_parts.append(f'style.stroke: "{src_colors[1]}"')
+
+            if conn.label:
+                label = conn.label.replace("\n", "\\n")
+                line = f"{conn.source_id} -> {conn.target_id}: {label}"
+            else:
+                line = f"{conn.source_id} -> {conn.target_id}"
+
+            if style_parts:
+                line += " {"
+                lines.append(line)
+                for sp in style_parts:
+                    lines.append(f"  {sp}")
+                lines.append("}")
+            else:
+                lines.append(line)
+
+        return "\n".join(lines) + "\n"
+
+    def _render_d2(self, output_path: str, fmt: str = "svg") -> None:
+        """Render using D2 CLI."""
+        import subprocess
+        import tempfile
+        import os
+
+        d2_source = self.to_d2()
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".d2", prefix="plotcraft_", delete=False,
+        ) as f:
+            f.write(d2_source)
+            d2_path = f.name
+
+        try:
+            cmd = [
+                "d2",
+                "--sketch",
+                "--layout", "dagre",
+                "--pad", "60",
+            ]
+            if self.dark:
+                cmd.extend(["--theme", "200"])  # Dark theme
+            else:
+                cmd.extend(["--theme", "0"])   # Default light
+
+            cmd.extend([d2_path, output_path])
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                raise RuntimeError(f"D2 rendering failed: {result.stderr}")
+        finally:
+            os.unlink(d2_path)
 
     # ------------------------------------------------------------------
     # Element builders
