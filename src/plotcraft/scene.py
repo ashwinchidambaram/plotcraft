@@ -555,7 +555,14 @@ class Scene:
                 ))
             else:
                 # Shape with bound text
+                # For bound text, Excalidraw auto-centers when containerId is set.
+                # We set text x/y/w/h to match the container — Excalidraw overrides
+                # the position based on textAlign + verticalAlign.
                 text_id = f"{elem.id}_text"
+                font_size = _ROLE_FONT.get(elem.role, (16, "center"))[0]
+                # Estimate text height for Excalidraw (lineHeight * fontSize * numLines)
+                num_lines = elem.text.count("\n") + 1
+                text_h = font_size * 1.25 * num_lines
                 shape = self._make_shape(
                     elem.id, shape_type, elem.x, elem.y, elem.width, elem.height,
                     fill=colors[0], stroke=colors[1],
@@ -563,10 +570,12 @@ class Scene:
                 )
                 elements.append(shape)
                 elements.append(self._make_text(
-                    text_id, elem.text, elem.x + 8, elem.y + 8,
-                    elem.width - 16, elem.height - 16,
+                    text_id, elem.text,
+                    elem.x + elem.width / 2 - 50,  # rough center, Excalidraw overrides
+                    elem.y + (elem.height - text_h) / 2,
+                    100, text_h,
                     color=colors[2],
-                    font_size=_ROLE_FONT.get(elem.role, (16, "center"))[0],
+                    font_size=font_size,
                     align="center",
                     container_id=elem.id,
                     v_align="middle",
@@ -696,54 +705,44 @@ class Scene:
         }
 
     def _make_arrow(self, conn: Connection, src: Element, tgt: Element) -> list[dict]:
-        """Create arrow with orthogonal routing between two elements."""
-        # Determine exit/entry sides based on relative position
-        dx = (tgt.x + tgt.width / 2) - (src.x + src.width / 2)
-        dy = (tgt.y + tgt.height / 2) - (src.y + src.height / 2)
+        """Create arrow between two elements.
 
-        if abs(dx) > abs(dy):
-            # Horizontal: exit right/left
-            if dx > 0:
-                sx = src.x + src.width + 4
-                sy = src.y + src.height / 2
-                ex = tgt.x - 4
-                ey = tgt.y + tgt.height / 2
-            else:
-                sx = src.x - 4
-                sy = src.y + src.height / 2
-                ex = tgt.x + tgt.width + 4
-                ey = tgt.y + tgt.height / 2
-        else:
-            # Vertical: exit bottom/top
-            if dy > 0:
-                sx = src.x + src.width / 2
-                sy = src.y + src.height + 4
-                ex = tgt.x + tgt.width / 2
-                ey = tgt.y - 4
-            else:
-                sx = src.x + src.width / 2
-                sy = src.y - 4
-                ex = tgt.x + tgt.width / 2
-                ey = tgt.y + tgt.height + 4
+        Uses straight lines from source edge to target edge. The exit point
+        on the source aims directly at the target center, producing clean
+        diagonal or straight connections without ugly L-bends.
+        """
+        GAP = 14.0
 
-        # Compute orthogonal path
-        points = self._route_orthogonal(sx, sy, ex, ey)
+        src_cx = src.x + src.width / 2
+        src_cy = src.y + src.height / 2
+        tgt_cx = tgt.x + tgt.width / 2
+        tgt_cy = tgt.y + tgt.height / 2
 
-        # Relative points
-        rel_points = [[p[0] - sx, p[1] - sy] for p in points]
+        # Compute the angle from source center to target center
+        dx = tgt_cx - src_cx
+        dy = tgt_cy - src_cy
+        angle = math.atan2(dy, dx)
+
+        # Exit point: where a ray from src center toward tgt center hits the src edge
+        sx, sy = self._edge_point(src, angle, GAP)
+        # Entry point: where a ray from tgt center toward src center hits the tgt edge
+        ex, ey = self._edge_point(tgt, angle + math.pi, GAP)
+
+        # Simple straight line — no bends
+        rel_points = [[0, 0], [ex - sx, ey - sy]]
 
         arrow_id = f"arrow_{conn.source_id}_{conn.target_id}"
         seed = self._seed(arrow_id)
-
         stroke_w = {"thin": 1, "normal": 2, "bold": 3}.get(conn.weight, 2)
         src_colors = self._get_colors(src)
+        stroke = src_colors[1] if src_colors[1] != "transparent" else "#757575"
 
         arrow = {
             "type": "arrow",
             "id": arrow_id,
             "x": sx, "y": sy,
-            "width": abs(ex - sx), "height": abs(ey - sy),
-            "strokeColor": src_colors[1] if src_colors[1] != "transparent" else "#757575",
+            "width": abs(ex - sx) or 1, "height": abs(ey - sy) or 1,
+            "strokeColor": stroke,
             "backgroundColor": "transparent",
             "fillStyle": "solid",
             "strokeWidth": stroke_w,
@@ -768,41 +767,46 @@ class Scene:
 
         result = [arrow]
 
-        # Arrow label
+        # Arrow label — offset to the side of the midpoint
         if conn.label:
             label_id = f"{arrow_id}_label"
-            mid = points[len(points) // 2]
-            label_w = len(conn.label) * 8 + 16
-            label_h = 22
+            mid_x = (sx + ex) / 2
+            mid_y = (sy + ey) / 2
+            label_w = len(conn.label) * 8 + 12
+            label_h = 20
+
+            # Offset perpendicular to arrow direction
+            perp_x = -math.sin(angle) * 14
+            perp_y = math.cos(angle) * 14
+
             result.append(self._make_text(
                 label_id, conn.label,
-                mid[0] - label_w / 2, mid[1] - label_h - 4,
+                mid_x + perp_x - label_w / 2,
+                mid_y + perp_y - label_h / 2,
                 label_w, label_h,
                 color="#757575" if not self.dark else "#8B8B8B",
-                font_size=14, align="center",
+                font_size=13, align="center",
             ))
 
         return result
 
-    def _route_orthogonal(
-        self, sx: float, sy: float, ex: float, ey: float,
-    ) -> list[tuple[float, float]]:
-        """Simple orthogonal routing: L-path or straight line."""
-        # If mostly horizontal or vertical, use an L-path
-        dx = ex - sx
-        dy = ey - sy
+    @staticmethod
+    def _edge_point(elem: Element, angle: float, gap: float) -> tuple[float, float]:
+        """Find where a ray at `angle` from element center exits the element edge."""
+        cx = elem.x + elem.width / 2
+        cy = elem.y + elem.height / 2
+        hw = elem.width / 2
+        hh = elem.height / 2
 
-        if abs(dx) < 5:
-            # Nearly vertical — straight line
-            return [(sx, sy), (ex, ey)]
-        if abs(dy) < 5:
-            # Nearly horizontal — straight line
-            return [(sx, sy), (ex, ey)]
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
 
-        # L-path: go horizontal first, then vertical
-        if abs(dx) > abs(dy):
-            mid_x = sx + dx / 2
-            return [(sx, sy), (mid_x, sy), (mid_x, ey), (ex, ey)]
+        # For rectangles/diamonds: find intersection with bounding box
+        if abs(cos_a) * hh > abs(sin_a) * hw:
+            # Hits left or right edge
+            t = hw / abs(cos_a)
         else:
-            mid_y = sy + dy / 2
-            return [(sx, sy), (sx, mid_y), (ex, mid_y), (ex, ey)]
+            # Hits top or bottom edge
+            t = hh / abs(sin_a)
+
+        return (cx + cos_a * (t + gap), cy + sin_a * (t + gap))
