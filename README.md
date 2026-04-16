@@ -4,9 +4,9 @@
 > Crooked boxes. Arrows through letters. Tiny grey labels.
 > PlotCraft fixes that.
 
-<p align="center">
-  <img src="examples/renders/neural_network_learning.png" alt="How a neural network learns" width="75%" />
-</p>
+<div align="center">
+  <img src="examples/renders/neural_network_learning.png" alt="How a neural network learns" width="60%" />
+</div>
 
 That diagram came from a single sentence: *"draw me how a neural network learns."* No design tools. No fiddling with arrows. No swearing at PowerPoint.
 
@@ -20,19 +20,11 @@ Think of it like having a designer who only does whiteboard sketches, sitting ne
 
 ---
 
-## How it works (the short version)
+## How it works
 
-PlotCraft is built specifically for **[Claude Code](https://claude.com/claude-code)** — Anthropic's coding assistant that runs in your terminal. You install Claude Code once, drop PlotCraft's "skill" folder into the right place, and from then on you can just say things like:
+PlotCraft is built for **[Claude Code](https://claude.com/claude-code)** — Anthropic's coding assistant that runs in your terminal. You install Claude Code once, drop PlotCraft's "skill" folder into the right place, and from then on Claude knows how to draw beautiful diagrams from anything you describe in plain English. Examples below.
 
-> *"Draw me a diagram showing how my morning routine works."*
->
-> *"Make a flowchart of how a credit card payment is processed."*
->
-> *"Show me the difference between renting and buying a house."*
-
-…and Claude knows exactly how to use PlotCraft to make a beautiful diagram for you.
-
-> **Heads up:** Today PlotCraft is built and tuned specifically for Claude Code. Support for other AI assistants (ChatGPT, Cursor, Gemini, local models like Ollama) is on the backlog — see [Roadmap](#roadmap--whats-coming-next).
+> **Heads up:** Today PlotCraft is tuned specifically for Claude Code. Support for ChatGPT, Cursor, Gemini, and local models (Ollama) is on the [roadmap](#roadmap--whats-coming-next).
 
 ---
 
@@ -69,57 +61,57 @@ Copy any prompt below into Claude Code with the skill installed. Each one produc
 
 > *"Show me how the immune system fights an infection."*
 
-<p align="center">
-  <img src="examples/renders/readme_pipeline.png" alt="Immune system pipeline" width="65%" />
-</p>
+<div align="center">
+  <img src="examples/renders/readme_pipeline.png" alt="Immune system pipeline" width="55%" />
+</div>
 
 ### Decisions
 
 > *"Are you out of Claude Code usage? Show the options."*
 
-<p align="center">
-  <img src="examples/renders/readme_claude_meme.png" alt="Out of Claude Code usage" width="60%" />
-</p>
+<div align="center">
+  <img src="examples/renders/readme_claude_meme.png" alt="Out of Claude Code usage" width="55%" />
+</div>
 
 ### Comparisons
 
 > *"Compare iPhone vs Android side by side, three points each."*
 
-<p align="center">
+<div align="center">
   <img src="examples/renders/readme_comparison.png" alt="iPhone vs Android" width="40%" />
-</p>
+</div>
 
 ### Feedback loops
 
 > *"Visualize the writer's revision loop — draft, get feedback, revise, repeat."*
 
-<p align="center">
+<div align="center">
   <img src="examples/renders/readme_cycle.png" alt="Writer revision loop" width="40%" />
-</p>
+</div>
 
 ### One-to-many flows
 
 > *"What happens when I press send on an email? Show every place it goes."*
 
-<p align="center">
-  <img src="examples/renders/readme_fanout.png" alt="Email fan-out" width="65%" />
-</p>
+<div align="center">
+  <img src="examples/renders/readme_fanout.png" alt="Email fan-out" width="55%" />
+</div>
 
 ### Multi-tier systems
 
 > *"Show me how a restaurant works: front of house, kitchen, suppliers."*
 
-<p align="center">
+<div align="center">
   <img src="examples/renders/readme_architecture.png" alt="Restaurant architecture" width="35%" />
-</p>
+</div>
 
 ### Timelines
 
 > *"Make a timeline of a product launch year — Q1 research, Q2 build, Q3 beta, Q4 launch."*
 
-<p align="center">
-  <img src="examples/renders/readme_timeline.png" alt="Product launch timeline" width="65%" />
-</p>
+<div align="center">
+  <img src="examples/renders/readme_timeline.png" alt="Product launch timeline" width="55%" />
+</div>
 
 Don't like the result? Just say *"use blue colors"* or *"emphasize the second step"* or *"make it darker"* and Claude will regenerate.
 
@@ -131,21 +123,21 @@ For richer concepts — branching paths, parallel flows, feedback loops, scienti
 
 > *"Diagram the life cycle of a star, including what happens to high-mass and low-mass stars."*
 
-<p align="center">
-  <img src="examples/renders/readme_star_lifecycle.png" alt="Life cycle of a star" width="55%" />
-</p>
+<div align="center">
+  <img src="examples/renders/readme_star_lifecycle.png" alt="Life cycle of a star" width="45%" />
+</div>
 
 > *"Show me the water cycle — evaporation, transpiration, precipitation, runoff, all of it."*
 
-<p align="center">
-  <img src="examples/renders/readme_water_cycle.png" alt="The water cycle" width="60%" />
-</p>
+<div align="center">
+  <img src="examples/renders/readme_water_cycle.png" alt="The water cycle" width="50%" />
+</div>
 
 > *"Explain how TikTok's recommendation algorithm decides what to show me."*
 
-<p align="center">
-  <img src="examples/renders/readme_tiktok.png" alt="TikTok algorithm" width="65%" />
-</p>
+<div align="center">
+  <img src="examples/renders/readme_tiktok.png" alt="TikTok algorithm" width="55%" />
+</div>
 
 And for genuinely custom infographics — slime molds, tournament brackets, evolutionary trees — there's a **Canvas API** that gives Claude pixel-precise spatial control. See the [GEPA project](https://github.com/ashwinchidambaram/gepa-mutations) for examples in the wild.
 
@@ -155,18 +147,18 @@ And for genuinely custom infographics — slime molds, tournament brackets, evol
 
 Every diagram ships in your choice of palette. You don't need to know color theory, just say *"use the ocean theme"*:
 
-<p align="center">
+<div align="center">
   <img src="examples/renders/template_theme_default.png" alt="terracotta" width="24%" />
   <img src="examples/renders/template_theme_ocean.png" alt="ocean" width="24%" />
   <img src="examples/renders/template_theme_forest.png" alt="forest" width="24%" />
   <img src="examples/renders/template_theme_sunset.png" alt="sunset" width="24%" />
-</p>
-<p align="center">
+</div>
+<div align="center">
   <img src="examples/renders/template_theme_grape.png" alt="grape" width="24%" />
   <img src="examples/renders/template_theme_monochrome.png" alt="monochrome" width="24%" />
   <img src="examples/renders/template_theme_pastel.png" alt="pastel" width="24%" />
   <img src="examples/renders/template_theme_vanilla.png" alt="vanilla" width="24%" />
-</p>
+</div>
 
 Built-in palettes: **default** (terracotta), **ocean**, **forest**, **sunset**, **grape**, **monochrome**, **pastel**, **vanilla**. Plus a dark mode for any of them.
 
@@ -280,10 +272,10 @@ PRs welcome — especially for new templates, new color palettes, Windows suppor
 
 ---
 
-<p align="center">
+<div align="center">
   <a href="https://github.com/ashwinchidambaram"><img src="assets/ac-blackhole-static.svg" alt="Built by Ashwin Chidambaram" width="260" /></a>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
   <sub>MIT licensed. Built because I hate shitty diagrams.</sub>
-</p>
+</div>
