@@ -1,13 +1,14 @@
 [project]
 name = "plotcraft"
-version = "1.4.0"
+version = "1.5.0"
 description = "AI-friendly diagram engine — Scene API with D2 rendering and spatial compositions"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "playwright>=1.40.0",
+]
 
 [project.optional-dependencies]
-render = ["playwright>=1.40.0"]
 svg = ["cairosvg>=2.9.0"]
 
 [project.scripts]

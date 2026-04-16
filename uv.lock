@@ -273,13 +273,13 @@ wheels = [
 
 [[package]]
 name = "plotcraft"
-version = "1.4.0"
+version = "1.5.0"
 source = { editable = "." }
-
-[package.optional-dependencies]
-render = [
+dependencies = [
     { name = "playwright" },
 ]
+
+[package.optional-dependencies]
 svg = [
     { name = "cairosvg" },
 ]
@@ -293,9 +293,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cairosvg", marker = "extra == 'svg'", specifier = ">=2.9.0" },
-    { name = "playwright", marker = "extra == 'render'", specifier = ">=1.40.0" },
+    { name = "playwright", specifier = ">=1.40.0" },
 ]
-provides-extras = ["render", "svg"]
+provides-extras = ["svg"]
 
 [package.metadata.requires-dev]
 dev = [

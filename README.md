@@ -23,33 +23,21 @@ AI-generated diagrams usually look terrible — misaligned text, arrows through 
 
 ## Install
 
-### Core (Scene API only)
-
 ```bash
 pip install plotcraft
-brew install d2          # rendering engine
 ```
 
-That's enough for flowcharts via the Scene API.
+That's it. PlotCraft auto-installs everything else on first use:
 
-### With spatial compositions (Canvas API)
+- **Chromium** (~150MB) — auto-installed via Playwright when you first render an Excalidraw diagram
+- **D2** — auto-installed via the official installer when you first render a Scene diagram (macOS/Linux)
+
+Manual install commands (if auto-install fails or you prefer explicit setup):
 
 ```bash
-pip install plotcraft[render]
-playwright install chromium
-brew install d2
+playwright install chromium     # for Canvas API rendering
+brew install d2                 # for Scene API rendering (macOS)
 ```
-
-The `[render]` extra adds Playwright + a headless Chromium for rendering Excalidraw diagrams to PNG/SVG.
-
-### Dependency summary
-
-| Need | Install |
-|---|---|
-| Scene API → `.d2`/`.excalidraw` files | `pip install plotcraft` |
-| Scene API → `.png`/`.svg` (D2 sketch mode) | + `brew install d2` |
-| Canvas API → `.excalidraw` files | `pip install plotcraft` |
-| Canvas API → `.png`/`.svg` | `pip install plotcraft[render]` + `playwright install chromium` |
 
 ## Quick Start
 

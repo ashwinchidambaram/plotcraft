@@ -815,6 +815,72 @@ class Scene:
 
         return "\n".join(lines) + "\n"
 
+    @staticmethod
+    def _ensure_d2() -> str:
+        """Find the D2 binary, auto-installing if missing.
+
+        Returns the path to the D2 executable.
+        """
+        import shutil
+        import os
+        import sys
+        import subprocess
+        import platform
+        from pathlib import Path
+
+        # 1. Check PATH
+        existing = shutil.which("d2")
+        if existing:
+            return existing
+
+        # 2. Check our cached install location
+        cache_dir = Path.home() / ".cache" / "plotcraft"
+        cached = cache_dir / "d2"
+        if cached.exists() and os.access(cached, os.X_OK):
+            return str(cached)
+
+        # 3. Auto-install via the official installer script
+        print("PlotCraft: installing D2 for first-time rendering (one-time)...")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        system = platform.system().lower()
+        if system in ("darwin", "linux"):
+            # Use the official installer with custom prefix
+            try:
+                env = os.environ.copy()
+                env["PREFIX"] = str(cache_dir.parent)  # Will install to ~/.cache/bin
+                result = subprocess.run(
+                    "curl -fsSL https://d2lang.com/install.sh | sh -s -- -p " + str(cache_dir.parent),
+                    shell=True, capture_output=True, text=True, timeout=120, env=env,
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(result.stderr or result.stdout)
+                # Find the installed binary
+                for candidate in [cache_dir.parent / "bin" / "d2", cache_dir / "d2"]:
+                    if candidate.exists():
+                        # Symlink to our cache location for stability
+                        if not cached.exists():
+                            try:
+                                cached.symlink_to(candidate)
+                            except OSError:
+                                shutil.copy2(candidate, cached)
+                        print("PlotCraft: D2 installed.")
+                        return str(candidate)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to auto-install D2.\n"
+                    f"Install manually:\n"
+                    f"  macOS:  brew install d2\n"
+                    f"  Linux:  curl -fsSL https://d2lang.com/install.sh | sh\n"
+                    f"  Other:  https://d2lang.com/releases\n"
+                    f"Error: {e}"
+                )
+
+        raise RuntimeError(
+            f"D2 is not installed and auto-install isn't available on {system}.\n"
+            f"Install manually: https://d2lang.com/releases"
+        )
+
     def _render_d2(self, output_path: str, fmt: str = "svg") -> None:
         """Render using D2 CLI.
 
@@ -826,14 +892,7 @@ class Scene:
         import tempfile
         import os
 
-        if shutil.which("d2") is None:
-            raise RuntimeError(
-                "D2 is not installed. PlotCraft uses D2 for diagram rendering.\n"
-                "Install it:\n"
-                "  macOS:  brew install d2\n"
-                "  Linux:  curl -fsSL https://d2lang.com/install.sh | sh\n"
-                "  Other:  https://d2lang.com/releases\n"
-            )
+        d2_path = self._ensure_d2()
 
         d2_source = self.to_d2()
 
@@ -845,7 +904,7 @@ class Scene:
 
         try:
             cmd = [
-                "d2",
+                d2_path,
                 "--sketch",
                 "--layout", "dagre",
                 "--pad", "60",

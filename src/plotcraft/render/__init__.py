@@ -13,16 +13,45 @@ from pathlib import Path
 _RENDER_TEMPLATE = Path(__file__).parent / "render_template.html"
 
 
-def _check_playwright() -> None:
-    """Raise a helpful error if Playwright isn't installed."""
+_CHROMIUM_CHECKED = False
+
+
+def _ensure_chromium() -> None:
+    """Auto-install Chromium on first use if missing.
+
+    Playwright is a required dep, so it's always importable.
+    But Chromium binary needs `playwright install chromium`.
+    We do this automatically the first time we render.
+    """
+    global _CHROMIUM_CHECKED
+    if _CHROMIUM_CHECKED:
+        return
+
+    from playwright.sync_api import sync_playwright
     try:
-        import playwright.sync_api  # noqa: F401
-    except ImportError:
-        raise ImportError(
-            "PNG/SVG rendering requires Playwright.\n"
-            "Install it: pip install plotcraft[render]\n"
-            "Then install Chromium: playwright install chromium"
-        )
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            browser.close()
+        _CHROMIUM_CHECKED = True
+    except Exception as e:
+        if "Executable doesn't exist" in str(e) or "playwright install" in str(e):
+            print("PlotCraft: installing Chromium for first-time rendering (~150MB, one-time)...")
+            import subprocess
+            import sys
+            result = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Failed to install Chromium automatically.\n"
+                    f"Run manually: playwright install chromium\n"
+                    f"Error: {result.stderr}"
+                )
+            _CHROMIUM_CHECKED = True
+            print("PlotCraft: Chromium installed.")
+        else:
+            raise
 
 
 def render_excalidraw_to_png(
@@ -42,7 +71,7 @@ def render_excalidraw_to_png(
     Returns:
         Path to the rendered PNG.
     """
-    _check_playwright()
+    _ensure_chromium()
     from playwright.sync_api import sync_playwright
 
     excalidraw_path = Path(excalidraw_path)
@@ -113,7 +142,7 @@ def render_excalidraw_to_svg(
     output_path: str | Path | None = None,
 ) -> Path:
     """Render an Excalidraw JSON file to SVG."""
-    _check_playwright()
+    _ensure_chromium()
     from playwright.sync_api import sync_playwright
 
     excalidraw_path = Path(excalidraw_path)
