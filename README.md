@@ -119,24 +119,18 @@ Don't like the result? Just say *"use blue colors"* or *"emphasize the second st
 
 ## When templates aren't enough
 
-For richer concepts — branching paths, parallel flows, feedback loops, scientific systems — Claude reaches for the **Scene API**. Same conversation, more elaborate output. Try prompts like:
+For richer concepts — branching paths, multiple endpoints, feedback loops, scientific systems — Claude reaches for the **Scene API**. Same conversation, more elaborate output. Try prompts like:
 
 > *"Diagram the life cycle of a star, including what happens to high-mass and low-mass stars."*
 
 <div align="center">
-  <img src="examples/renders/readme_star_lifecycle.png" alt="Life cycle of a star" width="45%" />
-</div>
-
-> *"Show me the water cycle — evaporation, transpiration, precipitation, runoff, all of it."*
-
-<div align="center">
-  <img src="examples/renders/readme_water_cycle.png" alt="The water cycle" width="50%" />
+  <img src="examples/renders/readme_star_lifecycle.png" alt="Life cycle of a star" width="65%" />
 </div>
 
 > *"Explain how TikTok's recommendation algorithm decides what to show me."*
 
 <div align="center">
-  <img src="examples/renders/readme_tiktok.png" alt="TikTok algorithm" width="55%" />
+  <img src="examples/renders/readme_tiktok.png" alt="TikTok algorithm" width="75%" />
 </div>
 
 And for genuinely custom infographics — slime molds, tournament brackets, evolutionary trees — there's a **Canvas API** that gives Claude pixel-precise spatial control. See the [GEPA project](https://github.com/ashwinchidambaram/gepa-mutations) for examples in the wild.
