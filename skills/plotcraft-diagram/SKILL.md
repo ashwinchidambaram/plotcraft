@@ -4,6 +4,10 @@ Create polished, argument-driven diagrams using PlotCraft's Scene API with D2 re
 
 **Use when:** The user asks you to create a diagram, flowchart, architecture diagram, visualization, visual essay, or any visual explanation of a concept.
 
+## IMPORTANT: Read Design Rules First
+
+Before creating ANY diagram, read `docs/DESIGN_RULES.md` in the PlotCraft repo. It contains spacing rules, arrow rules, text placement rules, and a pre-flight checklist that prevent the most common layout mistakes.
+
 ## Prerequisites
 
 PlotCraft must be installed:

@@ -68,6 +68,10 @@ The original grid-based API remains for backward compatibility:
 - **Excalidraw output**: roughness=1, fontFamily=3, Terracotta/Sage/Gold palette on Sand canvas (#F9F7F4)
 - **SVG output** (legacy): Caveat/Patrick Hand/Indie Flower fonts, wobble paths, cream canvas
 
+### Design Rules
+
+**Read `docs/DESIGN_RULES.md` before creating any diagram.** It contains spacing rules, arrow rules, text placement rules, and a pre-flight checklist that prevent the most common layout mistakes. These rules were learned from real iteration and produce first-shot quality when followed.
+
 ## Conventions
 
 - Tests go in `tests/` with `test_` prefix
