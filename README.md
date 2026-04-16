@@ -1,64 +1,30 @@
 # PlotCraft
 
-**Better diagrams from your AI.** PlotCraft is a Python library that gives LLMs the ability to create clean, well-designed diagrams. You describe what you want, PlotCraft handles the layout and rendering.
+**Better diagrams from your AI.** Describe what you want in Python, get a polished hand-drawn diagram back.
+
+<p align="center">
+  <img src="examples/renders/compiler_pipeline.png" alt="How a compiler works" width="90%" />
+</p>
+
+<p align="center">
+  <img src="examples/renders/neural_network_learning.png" alt="How a neural network learns" width="90%" />
+</p>
+
+<p align="center">
+  <img src="examples/renders/startup_death.png" alt="How startups die" width="90%" />
+</p>
 
 ## Why?
 
-AI-generated diagrams usually look terrible — misaligned text, arrows through shapes, everything the same size. PlotCraft fixes this by using [D2](https://d2lang.com) for intelligent layout and hand-drawn sketch rendering. The AI writes simple Python, D2 does the visual design.
+AI-generated diagrams usually look terrible — misaligned text, arrows through shapes, everything the same size. PlotCraft fixes this by using [D2](https://d2lang.com) for intelligent layout and hand-drawn sketch rendering.
 
-## Two Modes
-
-PlotCraft supports two fundamentally different diagram types:
-
-### Flowcharts (Scene API → D2)
-
-For **process flows, decisions, and sequences** — you describe elements and connections, D2 handles layout and routing automatically.
-
-<p align="center">
-  <img src="examples/renders/https.png" alt="HTTPS diagram" width="90%" />
-</p>
-
-<p align="center">
-  <img src="examples/renders/startup.png" alt="Startup funding journey" width="90%" />
-</p>
-
-### Spatial Compositions (Excalidraw)
-
-For **visual storytelling through density, quantity, and position** — where the spatial arrangement IS the information. Clusters of shapes, progressive narrowing, scattered elements that tell a story.
-
-<p align="center">
-  <img src="examples/renders/spatial_gradient_descent.png" alt="Gradient descent convergence" width="90%" />
-</p>
-
-### Themes
-
-The same diagram in different color schemes:
-
-<p align="center">
-  <img src="examples/renders/theme_default.png" alt="Default theme" width="30%" />
-  <img src="examples/renders/theme_earth.png" alt="Earth theme" width="30%" />
-  <img src="examples/renders/theme_grape.png" alt="Grape theme" width="30%" />
-</p>
-<p align="center">
-  <img src="examples/renders/theme_ocean.png" alt="Ocean theme" width="30%" />
-  <img src="examples/renders/theme_cool.png" alt="Cool theme" width="30%" />
-  <img src="examples/renders/theme_mixed.png" alt="Mixed theme" width="30%" />
-</p>
+No coordinates. No anchor points. No grid cells. Just content and relationships.
 
 ## Install
 
 ```bash
 pip install plotcraft
-```
-
-You'll also need D2 for rendering:
-
-```bash
-# macOS
-brew install d2
-
-# Linux
-curl -fsSL https://d2lang.com/install.sh | sh
+brew install d2        # rendering engine
 ```
 
 ## Quick Start
@@ -67,97 +33,73 @@ curl -fsSL https://d2lang.com/install.sh | sh
 from plotcraft import Scene
 
 s = Scene()
-s.add("How HTTPS keeps your data safe", role="title")
-s.add("You type a URL", role="start")
-s.add("TLS Handshake", role="process", emphasis="high")
-s.add("Certificate Check", role="decision")
-s.add("Encrypted Tunnel", role="process", size="large", emphasis="high")
-s.add("Page Loads", role="end")
+s.add("How a neural network learns", role="title")
+s.add("Training Data", role="start")
+s.add("Forward Pass", role="process", emphasis="high")
+s.add("Compute Loss", role="decision")
+s.add("Backpropagation", role="process", size="large", emphasis="high")
+s.add("Update Weights", role="process")
+s.add("Trained Model", role="end", size="large")
 
-s.connect("You type a URL", "TLS Handshake")
-s.connect("TLS Handshake", "Certificate Check")
-s.connect("Certificate Check", "Encrypted Tunnel", label="valid")
-s.connect("Encrypted Tunnel", "Page Loads")
+s.connect("Training Data", "Forward Pass")
+s.connect("Forward Pass", "Compute Loss", label="predictions")
+s.connect("Compute Loss", "Backpropagation", label="error signal")
+s.connect("Backpropagation", "Update Weights", label="gradients")
+s.connect("Update Weights", "Forward Pass", label="next batch", style="dashed")
 
-s.annotate("AES-256 encryption", near="Encrypted Tunnel")
-s.add("Every request, invisible, in milliseconds", role="caption")
+s.annotate("Chain rule through every layer", near="Backpropagation")
+s.add("Repeat until the loss stops decreasing", role="caption")
 
-s.layout("pipeline")
-s.save("https.png")
+s.layout("top_down")
+s.save("neural_net.png")
 ```
-
-## How It Works
-
-1. **You describe elements** — give each a role (`start`, `process`, `decision`, `end`) and optionally `emphasis` and `size`
-2. **You connect them** — PlotCraft figures out the arrow routing
-3. **You pick a layout** — `pipeline`, `top_down`, `fan_out`, `cycle`, `decision_tree`, `convergence`
-4. **D2 renders it** — sketch mode for a hand-drawn aesthetic, dagre for intelligent positioning
-
-No coordinates. No anchor points. No grid cells. Just content and relationships.
 
 ## Themes
 
-PlotCraft ships with 9 color themes:
+<p align="center">
+  <img src="examples/renders/theme_default.png" alt="Default" width="30%" />
+  <img src="examples/renders/theme_earth.png" alt="Earth" width="30%" />
+  <img src="examples/renders/theme_grape.png" alt="Grape" width="30%" />
+</p>
+<p align="center">
+  <img src="examples/renders/theme_ocean.png" alt="Ocean" width="30%" />
+  <img src="examples/renders/theme_cool.png" alt="Cool" width="30%" />
+  <img src="examples/renders/theme_mixed.png" alt="Mixed" width="30%" />
+</p>
 
 ```python
-Scene(theme="default")   # clean blues
-Scene(theme="earth")     # warm browns
-Scene(theme="grape")     # rich purples
-Scene(theme="ocean")     # cool teals
-Scene(theme="vanilla")   # soft yellows
-Scene(theme="cool")      # muted pastels
-Scene(theme="mixed")     # colorful variety
-Scene(dark=True)         # dark mode
+Scene(theme="default")   Scene(theme="earth")    Scene(theme="grape")
+Scene(theme="ocean")     Scene(theme="vanilla")  Scene(theme="cool")
+Scene(theme="mixed")     Scene(dark=True)
 ```
 
-## API Reference
+## API
 
 ```python
 from plotcraft import Scene
 
-# Create a scene
-s = Scene(
-    dark=False,          # dark mode
-    theme="default",     # color scheme
-)
+s = Scene(theme="default", dark=False)
 
-# Add elements
-s.add(text,
-    role="process",      # title, subtitle, start, end, process, decision, caption
-    size="medium",       # small, medium, large, hero
-    emphasis="normal",   # low, normal, high
-)
+# Elements
+s.add(text, role="process", size="medium", emphasis="normal")
+# Roles: title, subtitle, start, end, process, decision, caption
+# Sizes: small, medium, large, hero
+# Emphasis: low, normal, high
 
-# Connect elements (by their text)
-s.connect(source, target,
-    label=None,          # text on the arrow
-    style="solid",       # solid, dashed, dotted
-    weight="normal",     # thin, normal, bold
-)
+# Connections
+s.connect(source, target, label=None, style="solid", weight="normal")
 
-# Add floating annotations
+# Annotations
 s.annotate(text, near=element_text)
 
-# Choose layout and render
-s.layout("pipeline")     # pipeline, top_down, fan_out, convergence, cycle, decision_tree
-s.save("diagram.png")    # .png, .svg, .d2, .excalidraw
+# Layout + render
+s.layout("pipeline")      # pipeline, top_down, fan_out, convergence, cycle, decision_tree
+s.save("diagram.png")     # .png, .svg, .d2, .excalidraw
 ```
 
-## Element Roles
+## Design Rules
 
-| Role | Shape | Best for |
-|------|-------|----------|
-| `"title"` | floating text | Diagram title — states the insight |
-| `"subtitle"` | floating text | Section headers |
-| `"start"` | oval | Entry points, triggers |
-| `"end"` | oval | Results, outcomes |
-| `"process"` | rectangle | Steps, actions, states |
-| `"decision"` | diamond | Branch points, conditions |
-| `"caption"` | floating text | Closing insight |
-
-## Claude Code Skill
-
-PlotCraft includes a Claude Code skill at `skills/plotcraft-diagram/` that teaches AI assistants the design methodology — when to use which layout, how to pick roles, and how to write effective diagram titles.
+PlotCraft ships with [`docs/DESIGN_RULES.md`](docs/DESIGN_RULES.md) — a comprehensive guide for creating diagrams that look right on the first try. Spacing rules, arrow rules, text placement, and a pre-flight checklist, all learned from real iteration.
 
 ## Development
 
