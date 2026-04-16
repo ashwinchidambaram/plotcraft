@@ -1,30 +1,14 @@
-"""Tournament: single-elimination bracket from a frozen 64-candidate pool.
+"""Tournament: single-elimination bracket with converging bracket lines.
 
-Visual story:
-- Left: 4 generation strategies producing 64 candidates
-- Center: bracket narrowing 64→32→16→8→4→2→1 with increasing eval rigor
-- Right: champion on full validation
-- Bottom: rollout breakdown
-
-Key insight: NO MUTATION. If the best prompt wasn't generated in step 1,
-it can never be found. Pure diversity + competition.
+Shows the actual bracket structure — pairs merge into winners at each round.
+Compressed view: 16 representative entries through 4 visible rounds to champion,
+with labels showing the full 64→32→16→8→4→2→1 progression.
 """
 
 import json
 import zlib
 
-
 def _s(n): return zlib.adler32(n.encode())
-
-def rect(id, x, y, w, h, fill, stroke, opacity=100, sw=1.5):
-    s = _s(id)
-    return {"type":"rectangle","id":id,"x":x,"y":y,"width":w,"height":h,
-        "strokeColor":stroke,"backgroundColor":fill,
-        "fillStyle":"solid","strokeWidth":sw,"strokeStyle":"solid",
-        "roughness":1,"opacity":opacity,"angle":0,
-        "seed":s,"version":1,"versionNonce":s^0xFFFF,
-        "isDeleted":False,"groupIds":[],"boundElements":None,
-        "link":None,"locked":False,"roundness":{"type":3}}
 
 def circ(id, x, y, r, fill, stroke, opacity=100, sw=2):
     s = _s(id)
@@ -35,6 +19,16 @@ def circ(id, x, y, r, fill, stroke, opacity=100, sw=2):
         "seed":s,"version":1,"versionNonce":s^0xFFFF,
         "isDeleted":False,"groupIds":[],"boundElements":None,
         "link":None,"locked":False}
+
+def rect(id, x, y, w, h, fill, stroke, opacity=100, sw=1.5):
+    s = _s(id)
+    return {"type":"rectangle","id":id,"x":x,"y":y,"width":w,"height":h,
+        "strokeColor":stroke,"backgroundColor":fill,
+        "fillStyle":"solid","strokeWidth":sw,"strokeStyle":"solid",
+        "roughness":1,"opacity":opacity,"angle":0,
+        "seed":s,"version":1,"versionNonce":s^0xFFFF,
+        "isDeleted":False,"groupIds":[],"boundElements":None,
+        "link":None,"locked":False,"roundness":{"type":3}}
 
 def txt(id, x, y, w, h, content, size=14, color="#374151", align="left"):
     s = _s(id)
@@ -77,20 +71,12 @@ def arr(id, x, y, pts, stroke="#374151", width=2, opacity=60):
 
 elements = []
 
-# Colors
 BLUE_F = "#DBEAFE"; BLUE_S = "#3B82F6"
-GREEN = "#16A34A"; GREEN_S = "#15803D"; GREEN_F = "#DCFCE7"
-RED_S = "#EF4444"; RED_F = "#FEE2E2"
+GREEN = "#16A34A"; GREEN_S = "#15803D"
 ORANGE_F = "#FEF3C7"; ORANGE_S = "#F59E0B"
 PURPLE_F = "#EDE9FE"; PURPLE_S = "#7C3AED"
+RED_F = "#FEE2E2"; RED_S = "#EF4444"
 GRAY = "#9CA3AF"
-
-# Layout zones
-GEN_X = 60       # generation strategies
-POOL_X = 280     # frozen pool
-BRACKET_X = 440  # bracket start
-CHAMP_X = 1200   # champion
-CY = 300         # center y
 
 
 # ── Title ────────────────────────────────────────────────────────
@@ -103,190 +89,189 @@ elements.append(txt("sub", 220, 72, 1020, 18,
     size=13, color="#6B7280", align="center"))
 
 
-# ══════════════════════════════════════════════════════════════════
-# LEFT: 4 Generation Strategies
-# ══════════════════════════════════════════════════════════════════
+# ── Generation strategies (left) ─────────────────────────────────
 
-elements.append(txt("gen_h", GEN_X, 120, 200, 18,
-    "4 Generation Strategies", size=14, color=ORANGE_S))
+elements.append(txt("gen_h", 50, 120, 180, 16,
+    "4 Generation Strategies", size=13, color=ORANGE_S))
 
-strategies = [
+strats = [
     ("Reasoning (x16)", ORANGE_F, ORANGE_S),
     ("Format (x16)", BLUE_F, BLUE_S),
     ("Detail Level (x16)", PURPLE_F, PURPLE_S),
-    ("Error Prevention (x16)", RED_F, RED_S),
+    ("Error Prev. (x16)", RED_F, RED_S),
 ]
+sy = 148
+for i, (name, fill, stroke) in enumerate(strats):
+    elements.append(rect(f"st_{i}", 50, sy, 140, 22, fill, stroke, 85))
+    elements.append(txt(f"stn_{i}", 56, sy+3, 130, 14, name, size=9, color="#374151"))
+    sy += 28
 
-sy = 155
-for i, (name, fill, stroke) in enumerate(strategies):
-    elements.append(rect(f"strat_{i}", GEN_X, sy, 170, 28, fill, stroke, 90))
-    elements.append(txt(f"stratn_{i}", GEN_X+8, sy+5, 155, 14,
-        name, size=11, color="#374151"))
-    sy += 34
+elements.append(circ("seed_d", 60, sy+6, 5, GREEN, GREEN_S))
+elements.append(txt("seed_l", 70, sy, 60, 12, "+ seed", size=9, color=GRAY))
 
-# Seed prompt indicator
-elements.append(circ("seed_dot", GEN_X+10, sy+10, 7, GREEN, GREEN_S))
-elements.append(txt("seed_l", GEN_X+22, sy+3, 100, 14,
-    "+ seed prompt", size=10, color=GRAY))
+# Arrow to bracket
+elements.append(arr("a_gen", 198, 210, [[0,0],[60,0]], ORANGE_S, 2, 50))
+elements.append(txt("pool_l", 205, 195, 50, 14, "= 64", size=11, color=ORANGE_S))
 
 
 # ══════════════════════════════════════════════════════════════════
-# FROZEN POOL
+# BRACKET — converging lines showing pairs → winners
+# Show 16 entries converging through 4 visible rounds to champion
+# (represents the full 64→32→16→8→4→2→1)
 # ══════════════════════════════════════════════════════════════════
 
-elements.append(rect("pool_box", POOL_X, 145, 110, 260, "#F9FAFB", "#6B7280", 60))
-elements.append(txt("pool_t", POOL_X+10, 150, 90, 18,
-    "64 pool", size=14, color="#374151", align="center"))
+BRACKET_LEFT = 280
+BRACKET_GAP = 180   # horizontal gap between round columns
+DOT_R = 6
+ENTRY_SPACING = 28  # vertical spacing between entries in round 1
 
-# Grid of tiny dots representing 64 candidates
-dot_r = 5
-cols_n = 6
-for i in range(64):
-    row = i // cols_n
-    col = i % cols_n
-    dx = POOL_X + 15 + col * 15
-    dy = 178 + row * 15
+# Round column x positions
+R_X = [BRACKET_LEFT + i * BRACKET_GAP for i in range(5)]  # R1, R2, R3, R4, Final
+
+# Round 1: 16 entries (representing 32 survivors from 64)
+r1_entries = 16
+r1_top = 140
+r1_positions = [r1_top + i * ENTRY_SPACING for i in range(r1_entries)]
+
+# Draw R1 dots
+for i, y in enumerate(r1_positions):
     fill = GREEN if i == 0 else BLUE_F
     stroke = GREEN_S if i == 0 else BLUE_S
-    op = 100 if i == 0 else 70
-    elements.append(circ(f"pd_{i}", dx, dy, dot_r, fill, stroke, op, 1))
+    elements.append(circ(f"r1_{i}", R_X[0], y, DOT_R, fill, stroke, 75, 1.5))
 
-elements.append(txt("frozen_l", POOL_X+5, 355, 100, 14,
-    "POOL FROZEN", size=10, color=RED_S))
-elements.append(txt("frozen_l2", POOL_X+5, 370, 110, 12,
-    "no new prompts after\nthis point", size=9, color=GRAY))
+# Round 2: 8 winners (each pair → 1 winner)
+r2_positions = [(r1_positions[i*2] + r1_positions[i*2+1]) / 2 for i in range(8)]
 
-# Arrow from strategies to pool
-elements.append(arr("a_gen_pool", GEN_X+175, 250, [[0,0],[POOL_X-GEN_X-185, 0]],
-    ORANGE_S, 2, 50))
+for i, y in enumerate(r2_positions):
+    elements.append(circ(f"r2_{i}", R_X[1], y, DOT_R, BLUE_F, BLUE_S, 80, 1.5))
 
+# Bracket lines: R1 pairs → R2 winners
+for i in range(8):
+    y_top = r1_positions[i*2]
+    y_bot = r1_positions[i*2+1]
+    y_mid = r2_positions[i]
+    # Horizontal from top entry
+    elements.append(ln(f"br1_t{i}", [[R_X[0]+DOT_R+2, y_top], [R_X[0]+30, y_top], [R_X[0]+30, y_mid], [R_X[1]-DOT_R-2, y_mid]],
+        BLUE_S, 1, 40))
+    # Horizontal from bottom entry
+    elements.append(ln(f"br1_b{i}", [[R_X[0]+DOT_R+2, y_bot], [R_X[0]+30, y_bot], [R_X[0]+30, y_mid]],
+        BLUE_S, 1, 40))
 
-# ══════════════════════════════════════════════════════════════════
-# BRACKET: Progressive elimination
-# ══════════════════════════════════════════════════════════════════
+# Round 3: 4 winners
+r3_positions = [(r2_positions[i*2] + r2_positions[i*2+1]) / 2 for i in range(4)]
 
-elements.append(txt("bracket_h", BRACKET_X+50, 120, 350, 18,
-    "Single-Elimination Bracket", size=14, color=BLUE_S))
+for i, y in enumerate(r3_positions):
+    elements.append(circ(f"r3_{i}", R_X[2], y, DOT_R+1, BLUE_F, BLUE_S, 85, 1.5))
 
-rounds = [
-    ("R1", "32 matchups", "5 ex", 32, BRACKET_X),
-    ("R2", "16 matchups", "7 ex", 16, BRACKET_X + 130),
-    ("R3", "8 matchups", "10 ex", 8, BRACKET_X + 260),
-    ("R4", "4 matchups", "15 ex", 4, BRACKET_X + 390),
-    ("R5", "2 matchups", "20 ex", 2, BRACKET_X + 520),
-]
+# Bracket lines: R2 → R3
+for i in range(4):
+    y_top = r2_positions[i*2]
+    y_bot = r2_positions[i*2+1]
+    y_mid = r3_positions[i]
+    elements.append(ln(f"br2_t{i}", [[R_X[1]+DOT_R+2, y_top], [R_X[1]+35, y_top], [R_X[1]+35, y_mid], [R_X[2]-DOT_R-3, y_mid]],
+        BLUE_S, 1.2, 45))
+    elements.append(ln(f"br2_b{i}", [[R_X[1]+DOT_R+2, y_bot], [R_X[1]+35, y_bot], [R_X[1]+35, y_mid]],
+        BLUE_S, 1.2, 45))
 
-for i, (name, matchups, examples, survivors, rx) in enumerate(rounds):
-    # Round header
-    elements.append(txt(f"rh_{i}", rx, 145, 100, 14,
-        name, size=13, color=BLUE_S))
-    elements.append(txt(f"rm_{i}", rx, 160, 100, 12,
-        matchups, size=9, color=GRAY))
-    elements.append(txt(f"re_{i}", rx, 173, 100, 12,
-        examples, size=9, color=BLUE_S))
+# Round 4: 2 winners (semifinals)
+r4_positions = [(r3_positions[i*2] + r3_positions[i*2+1]) / 2 for i in range(2)]
 
-    # Uniform dot size — the COUNT tells the elimination story
-    dot_size = 6
-    n_dots = survivors
-    cols_r = min(6, n_dots)
-    spacing = 16  # fixed spacing for uniform look
-    for j in range(n_dots):
-        row = j // cols_r
-        col = j % cols_r
-        dx = rx + 10 + col * spacing
-        dy = 200 + row * spacing
-        # Progressively deeper blue
-        opacity = 60 + i * 8
-        elements.append(circ(f"rd_{i}_{j}", dx, dy, dot_size,
-            BLUE_F, BLUE_S, opacity, 1.5))
+for i, y in enumerate(r4_positions):
+    elements.append(circ(f"r4_{i}", R_X[3], y, DOT_R+2, "#93C5FD", "#2563EB", 90, 2))
 
-    pass  # Arrows handled below as one continuous flow line
+# Bracket lines: R3 → R4
+for i in range(2):
+    y_top = r3_positions[i*2]
+    y_bot = r3_positions[i*2+1]
+    y_mid = r4_positions[i]
+    elements.append(ln(f"br3_t{i}", [[R_X[2]+DOT_R+3, y_top], [R_X[2]+40, y_top], [R_X[2]+40, y_mid], [R_X[3]-DOT_R-4, y_mid]],
+        "#2563EB", 1.5, 50))
+    elements.append(ln(f"br3_b{i}", [[R_X[2]+DOT_R+3, y_bot], [R_X[2]+40, y_bot], [R_X[2]+40, y_mid]],
+        "#2563EB", 1.5, 50))
 
-# Rollout counts under each round
-rollouts = ["320", "224", "160", "120", "80"]
-for i, (_, _, _, _, rx) in enumerate(rounds):
-    elements.append(txt(f"rc_{i}", rx, 400, 80, 14,
-        f"{rollouts[i]} rollouts", size=9, color=GRAY))
+# Final: 1 champion
+final_y = (r4_positions[0] + r4_positions[1]) / 2
 
+# Bracket lines: R4 → Final
+elements.append(ln("br4_t", [[R_X[3]+DOT_R+4, r4_positions[0]], [R_X[3]+45, r4_positions[0]], [R_X[3]+45, final_y], [R_X[4]-30, final_y]],
+    GREEN_S, 2, 60))
+elements.append(ln("br4_b", [[R_X[3]+DOT_R+4, r4_positions[1]], [R_X[3]+45, r4_positions[1]], [R_X[3]+45, final_y]],
+    GREEN_S, 2, 60))
 
-# ══════════════════════════════════════════════════════════════════
-# CHAMPION
-# ══════════════════════════════════════════════════════════════════
-
-# ── Continuous flow arrow below all dot grids ────────────────────
-
-flow_y = 315  # below tallest grid (R1: 6 rows × 16px = 96px, starts at 200, ends ~296)
-flow_start = BRACKET_X
-flow_end = rounds[-1][4] + 40
-
-# One continuous arrow
-elements.append(arr("flow_arrow", flow_start, flow_y,
-    [[0, 0], [flow_end - flow_start, 0]], BLUE_S, 2, 45))
-
-# Elimination markers at each round boundary
-eliminations = ["64→32", "32→16", "16→8", "8→4", "4→2"]
-for i in range(len(rounds)):
-    rx = rounds[i][4]
-    # Small tick mark
-    elements.append(ln(f"flow_tick_{i}", [[rx+5, flow_y-5], [rx+5, flow_y+5]],
-        BLUE_S, 1.5, 45))
-    # Elimination count
-    if i < len(eliminations):
-        elements.append(txt(f"flow_elim_{i}", rx-5, flow_y+18, 60, 12,
-            eliminations[i], size=9, color=BLUE_S, align="center"))
-
-
-# ══════════════════════════════════════════════════════════════════
-
-# Arrow from flow to champion
-sf_rx = rounds[-1][4]
-arrow_y = flow_y
-elements.append(arr("a_to_champ", sf_rx + 50, arrow_y,
-    [[0,0],[CHAMP_X - sf_rx - 80, 0]], GREEN_S, 3, 70))
-
-# Champion node
-elements.append(circ("champion", CHAMP_X, arrow_y, 30, GREEN, GREEN_S))
-elements.append(txt("champ_l", CHAMP_X-35, arrow_y+38, 80, 18,
+# Champion circle
+elements.append(circ("champion", R_X[4], final_y, 26, GREEN, GREEN_S))
+elements.append(txt("champ_l", R_X[4]-30, final_y+34, 70, 16,
     "Champion", size=14, color=GREEN))
-elements.append(txt("champ_l2", CHAMP_X-50, arrow_y+58, 110, 14,
+
+
+# ── Round headers (above bracket) ────────────────────────────────
+
+round_headers = [
+    ("R1\n5 ex", "64→32"),
+    ("R2\n7 ex", "32→16"),
+    ("R3\n10 ex", "16→8"),
+    ("R4\n15 ex", "8→4"),
+    ("Final\n20 ex", "2→1"),
+]
+for i, (label, elim) in enumerate(round_headers):
+    elements.append(txt(f"rh_{i}", R_X[i]-20, 108, 60, 30,
+        label, size=10, color=BLUE_S, align="center"))
+
+
+# ── Annotations ──────────────────────────────────────────────────
+
+# "POOL FROZEN" near the bracket entry
+elements.append(txt("frozen", BRACKET_LEFT-15, r1_positions[-1]+20, 100, 14,
+    "POOL FROZEN", size=10, color=RED_S))
+elements.append(txt("frozen2", BRACKET_LEFT-15, r1_positions[-1]+35, 120, 12,
+    "no mutation\nbetween rounds", size=9, color=GRAY))
+
+# Head-to-head note
+elements.append(txt("h2h", R_X[1]-20, r2_positions[-1]+30, 150, 12,
+    "head-to-head on\nsame examples", size=9, color=BLUE_S))
+
+# Champion notes
+elements.append(txt("champ_note1", R_X[4]-50, final_y+55, 150, 14,
     "full validation set", size=11, color=GRAY))
 
-# Key insight callout — below champion with clear gap
-elements.append(txt("insight1", CHAMP_X-60, arrow_y+90, 220, 16,
+# Key insight
+elements.append(txt("insight1", R_X[4]-60, final_y+80, 220, 14,
     "No mutation between rounds.", size=12, color=RED_S))
-elements.append(txt("insight2", CHAMP_X-60, arrow_y+110, 220, 25,
-    "If the best prompt wasn't\ngenerated in step 1,\nit can never be found.", size=11, color=GRAY))
+elements.append(txt("insight2", R_X[4]-60, final_y+98, 220, 22,
+    "If the best prompt wasn't\ngenerated in step 1,\nit can never be found.", size=10, color=GRAY))
 
 
-# ── Rigor progression line ───────────────────────────────────────
+# ── Bottom info ──────────────────────────────────────────────────
 
-ry = 430
-elements.append(ln("rigor_line", [[BRACKET_X, ry],[BRACKET_X+580, ry]], "#E5E7EB", 1, 30))
-elements.append(txt("rigor_l", BRACKET_X, ry+5, 500, 14,
-    "evaluation rigor increases:  5 → 7 → 10 → 15 → 20 → full valset",
+info_y = max(r1_positions[-1] + 70, final_y + 130)
+elements.append(txt("rigor", 280, info_y, 500, 14,
+    "evaluation rigor:  5 → 7 → 10 → 15 → 20 → full valset",
     size=11, color=BLUE_S))
-elements.append(txt("rigor_total", BRACKET_X, ry+22, 300, 14,
-    "total: ~904 rollouts (preliminary rounds)",
+elements.append(txt("total", 280, info_y+18, 400, 14,
+    "total: ~904 preliminary rollouts  |  ties favor lower seed",
     size=11, color=GRAY))
 
 
 # ── Legend ────────────────────────────────────────────────────────
 
-ly = ry + 50
-elements.append(rect("leg_bg", 60, ly, 700, 45, "#FAFAFA", "#E5E7EB", 70, 1))
-elements.append(txt("leg_t", 70, ly+5, 50, 14, "Legend:", size=11, color="#374151"))
+ly = info_y + 45
+elements.append(rect("leg_bg", 50, ly, 700, 42, "#FAFAFA", "#E5E7EB", 70, 1))
+elements.append(txt("leg_t", 60, ly+5, 50, 14, "Legend:", size=11, color="#374151"))
 
-elements.append(circ("lc1", 140, ly+14, 6, GREEN, GREEN_S, 100, 1.5))
-elements.append(txt("lt1", 150, ly+6, 80, 14, "Seed prompt", size=10, color=GRAY))
+elements.append(circ("lc1", 130, ly+14, 6, GREEN, GREEN_S, 100, 1.5))
+elements.append(txt("lt1", 140, ly+6, 80, 14, "Seed prompt", size=10, color=GRAY))
 
-elements.append(circ("lc2", 260, ly+14, 6, BLUE_F, BLUE_S, 80, 1.5))
-elements.append(txt("lt2", 270, ly+6, 80, 14, "Candidate", size=10, color=GRAY))
+elements.append(circ("lc2", 245, ly+14, 6, BLUE_F, BLUE_S, 80, 1.5))
+elements.append(txt("lt2", 255, ly+6, 80, 14, "Candidate", size=10, color=GRAY))
 
-elements.append(circ("lc3", 370, ly+14, 8, GREEN, GREEN_S, 100, 2))
-elements.append(txt("lt3", 382, ly+6, 80, 14, "Champion", size=10, color=GRAY))
+elements.append(ln("lc3", [[355, ly+14],[380, ly+14]], BLUE_S, 1.5, 50))
+elements.append(txt("lt3", 385, ly+6, 100, 14, "Bracket line", size=10, color=GRAY))
 
-elements.append(txt("leg_foot", 70, ly+28, 650, 12,
-    "Head-to-head: both prompts evaluated on the SAME examples per matchup  |  Ties favor lower seed",
+elements.append(circ("lc4", 505, ly+14, 8, GREEN, GREEN_S, 100, 2))
+elements.append(txt("lt4", 517, ly+6, 80, 14, "Champion", size=10, color=GRAY))
+
+elements.append(txt("leg_foot", 60, ly+26, 650, 12,
+    "Both prompts in a matchup evaluated on the SAME examples  |  Bracket shows 16 of 64 entries (compressed)",
     size=9, color=GRAY))
 
 
