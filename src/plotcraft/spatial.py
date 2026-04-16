@@ -317,7 +317,10 @@ class Canvas:
         }
 
     def save(self, path):
-        """Save and render. Supports .excalidraw, .png, .svg."""
+        """Save and render. Supports .excalidraw, .png, .svg.
+
+        PNG/SVG output requires plotcraft[render] (Playwright + Chromium).
+        """
         exc_path = path.rsplit(".", 1)[0] + ".excalidraw"
         with open(exc_path, "w") as f:
             json.dump(self.to_excalidraw(), f, indent=2)
@@ -325,22 +328,11 @@ class Canvas:
         if path.endswith(".excalidraw"):
             return
 
-        # Render via Playwright
-        import shutil
-        render_script = os.path.join(
-            os.path.dirname(__file__), "..", "..", "skills",
-            "plotcraft-diagram", "references", "render_excalidraw.py",
-        )
-        if not os.path.exists(render_script):
-            # Try relative to cwd
-            render_script = "skills/plotcraft-diagram/references/render_excalidraw.py"
-
-        if os.path.exists(render_script):
-            result = subprocess.run(
-                ["uv", "run", "python", render_script, exc_path],
-                capture_output=True, text=True, timeout=30,
-            )
-            if result.returncode != 0:
-                print(f"Render error: {result.stderr}")
+        ext = path.rsplit(".", 1)[-1].lower()
+        from plotcraft.render import render_excalidraw_to_png, render_excalidraw_to_svg
+        if ext == "png":
+            render_excalidraw_to_png(exc_path, path)
+        elif ext == "svg":
+            render_excalidraw_to_svg(exc_path, path)
         else:
-            print(f"Render script not found. Saved {exc_path}")
+            raise ValueError(f"Unsupported format: .{ext}. Use .excalidraw, .png, or .svg")

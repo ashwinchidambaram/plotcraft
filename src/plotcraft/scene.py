@@ -658,11 +658,16 @@ class Scene:
             if use_d2:
                 self._render_d2(path, ext)
             else:
-                # Fallback: save as excalidraw (no built-in SVG/PNG from Scene)
+                # Use bundled Excalidraw renderer (requires plotcraft[render])
                 exc_path = path.rsplit(".", 1)[0] + ".excalidraw"
                 data = self.to_excalidraw()
                 with open(exc_path, "w") as f:
                     json.dump(data, f, indent=2)
+                from plotcraft.render import render_excalidraw_to_png, render_excalidraw_to_svg
+                if ext == "png":
+                    render_excalidraw_to_png(exc_path, path)
+                else:
+                    render_excalidraw_to_svg(exc_path, path)
         else:
             # Default: Excalidraw JSON
             data = self.to_excalidraw()
