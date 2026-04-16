@@ -21,8 +21,10 @@ Usage:
 """
 from __future__ import annotations
 
-from typing import Optional, Sequence
-from plotcraft.scene import Scene
+from typing import Optional, Sequence, Union
+from plotcraft.scene import Scene, Palette
+
+ThemeLike = Union[str, Palette, dict]
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -41,7 +43,7 @@ class Pipeline:
         .save("https.png")
     """
 
-    def __init__(self, title: str, theme: str = "default", dark: bool = False):
+    def __init__(self, title: str, theme: ThemeLike = "default", dark: bool = False):
         self._title = title
         self._steps: list[tuple[str, bool, Optional[str]]] = []  # (text, emphasize, annotation)
         self._caption: Optional[str] = None
@@ -98,7 +100,7 @@ class DecisionTree:
         .save("db.png")
     """
 
-    def __init__(self, title: str, theme: str = "default", dark: bool = False):
+    def __init__(self, title: str, theme: ThemeLike = "default", dark: bool = False):
         self._title = title
         self._question: Optional[str] = None
         self._branches: list[tuple[str, str, Optional[str]]] = []  # (label, target, note)
@@ -152,7 +154,7 @@ class Comparison:
         .save("compare.png")
     """
 
-    def __init__(self, title: str, theme: str = "default", dark: bool = False):
+    def __init__(self, title: str, theme: ThemeLike = "default", dark: bool = False):
         self._title = title
         self._options: list[tuple[str, list[str]]] = []  # (name, points)
         self._caption: Optional[str] = None
@@ -171,18 +173,19 @@ class Comparison:
         s = Scene(theme=self._theme, dark=self._dark)
         s.add(self._title, role="title")
 
-        # Render each option as a labeled stack
+        # Render each option as a labeled stack. Use explicit ids so that
+        # repeated point text across options doesn't collide, while keeping
+        # the visible label clean (no "OptionName: " prefix).
         for i, (name, points) in enumerate(self._options):
             role = "start" if i == 0 else "end"
-            s.add(name, role=role, size="large", emphasis="high")
+            header_id = f"opt_{i}_header"
+            s.add(name, id=header_id, role=role, size="large", emphasis="high")
+            prev_id = header_id
             for j, point in enumerate(points):
-                point_id = f"{name}: {point}"
-                s.add(point_id, role="process")
-                if j == 0:
-                    s.connect(name, point_id)
-                else:
-                    prev = f"{name}: {points[j-1]}"
-                    s.connect(prev, point_id)
+                point_id = f"opt_{i}_{j}"
+                s.add(point, id=point_id, role="process")
+                s.connect(prev_id, point_id)
+                prev_id = point_id
 
         if self._caption:
             s.add(self._caption, role="caption")
@@ -206,7 +209,7 @@ class Cycle:
         .save("loop.png")
     """
 
-    def __init__(self, title: str, theme: str = "default", dark: bool = False):
+    def __init__(self, title: str, theme: ThemeLike = "default", dark: bool = False):
         self._title = title
         self._steps: list[tuple[str, bool]] = []
         self._feedback_label: Optional[str] = None
@@ -260,7 +263,7 @@ class FanOut:
         .save("events.png")
     """
 
-    def __init__(self, title: str, theme: str = "default", dark: bool = False):
+    def __init__(self, title: str, theme: ThemeLike = "default", dark: bool = False):
         self._title = title
         self._source: Optional[str] = None
         self._targets: list[tuple[str, bool]] = []
@@ -312,7 +315,7 @@ class Architecture:
         .save("arch.png")
     """
 
-    def __init__(self, title: str, theme: str = "default", dark: bool = False):
+    def __init__(self, title: str, theme: ThemeLike = "default", dark: bool = False):
         self._title = title
         self._tiers: list[tuple[str, list[str]]] = []
         self._caption: Optional[str] = None
@@ -331,21 +334,26 @@ class Architecture:
         s = Scene(theme=self._theme, dark=self._dark)
         s.add(self._title, role="title")
 
-        for tier_idx, (tier_name, components) in enumerate(self._tiers):
-            for j, comp in enumerate(components):
-                if tier_idx == 0 and j == 0:
-                    role = "start"
-                elif tier_idx == len(self._tiers) - 1:
-                    role = "end" if j == 0 else "process"
-                else:
-                    role = "process"
-                s.add(comp, role=role)
+        # Render each tier as a SINGLE consolidated box: tier name as the
+        # header, components listed inside via newlines. This avoids the
+        # orphan-box problem of trying to layout N shapes per tier with
+        # the top-down engine.
+        tier_ids: list[str] = []
+        for i, (tier_name, components) in enumerate(self._tiers):
+            tier_id = f"tier_{i}"
+            tier_ids.append(tier_id)
+            label = tier_name + "\n" + "\n".join(f"• {c}" for c in components)
+            if i == 0:
+                role = "start"
+            elif i == len(self._tiers) - 1:
+                role = "end"
+            else:
+                role = "process"
+            s.add(label, id=tier_id, role=role, size="large")
 
-        # Connect first component of each tier to first of next tier
-        for i in range(len(self._tiers) - 1):
-            top = self._tiers[i][1][0]
-            bot = self._tiers[i + 1][1][0]
-            s.connect(top, bot, weight="bold")
+        # Tier-to-tier connections, top-down
+        for i in range(len(tier_ids) - 1):
+            s.connect(tier_ids[i], tier_ids[i + 1], weight="bold")
 
         if self._caption:
             s.add(self._caption, role="caption")
@@ -369,7 +377,7 @@ class Timeline:
         .save("roadmap.png")
     """
 
-    def __init__(self, title: str, theme: str = "default", dark: bool = False):
+    def __init__(self, title: str, theme: ThemeLike = "default", dark: bool = False):
         self._title = title
         self._events: list[tuple[str, str, bool]] = []  # (when, what, emphasize)
         self._caption: Optional[str] = None
