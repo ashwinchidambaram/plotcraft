@@ -25,7 +25,6 @@ plotcraft/
 ├── skills/              # Claude Code skills
 │   └── plotcraft-diagram/    # Diagram creation skill with design methodology
 ├── docs/                # Documentation and specs
-├── ref/                 # Design references (Figma, Google AI Studio)
 └── pyproject.toml       # Project config (uv-managed)
 ```
 
