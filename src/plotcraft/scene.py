@@ -21,38 +21,328 @@ from enum import Enum
 _CANVAS_LIGHT = "#F9F7F4"
 _CANVAS_DARK = "#1A1A1A"
 
-# (fill, stroke, text_color)
-_ROLE_COLORS_LIGHT: dict[str, tuple[str | None, str, str]] = {
-    "title":      (None, "transparent", "#2C2C2C"),
-    "subtitle":   (None, "transparent", "#D4745E"),
-    "start":      ("#FCF0ED", "#A84F3B", "#2C2C2C"),
-    "end":        ("#E3E8DF", "#485240", "#2C2C2C"),
-    "process":    ("#F3EFE8", "#757575", "#2C2C2C"),
-    "decision":   ("#FDF8F0", "#5E422A", "#2C2C2C"),
-    "annotation": (None, "transparent", "#757575"),
-    "caption":    (None, "transparent", "#757575"),
+# Triple = (fill, stroke, text_color). fill may be None for text-only roles.
+RoleColors = tuple[str | None, str, str]
+
+
+@dataclass
+class Palette:
+    """Color palette controlling every visual element in a Scene.
+
+    Each role gets a (fill, stroke, text) triple. Text-only roles (title,
+    subtitle, caption, annotation) only use the text color.
+
+    Use a built-in palette by name (e.g. ``Scene(theme="ocean")``) or build
+    your own::
+
+        from plotcraft import Scene, Palette
+
+        custom = Palette(
+            name="brand",
+            canvas="#FFFFFF",
+            start=("#E3F2FD", "#1565C0", "#0D47A1"),
+            end=("#E8F5E9", "#2E7D32", "#1B5E20"),
+            process=("#F5F5F5", "#616161", "#212121"),
+            decision=("#FFF3E0", "#E65100", "#BF360C"),
+            high=("#FFB300", "#E65100", "#FFFFFF"),
+        )
+        Scene(theme=custom)
+    """
+
+    name: str = "custom"
+    canvas: str = "#F9F7F4"
+
+    # Text-only role colors
+    title_color: str = "#2C2C2C"
+    subtitle_color: str = "#D4745E"
+    caption_color: str = "#757575"
+    annotation_color: str = "#757575"
+
+    # Shape role triples (fill, stroke, text)
+    start: RoleColors = ("#FCF0ED", "#A84F3B", "#2C2C2C")
+    end: RoleColors = ("#E3E8DF", "#485240", "#2C2C2C")
+    process: RoleColors = ("#F3EFE8", "#757575", "#2C2C2C")
+    decision: RoleColors = ("#FDF8F0", "#5E422A", "#2C2C2C")
+
+    # Emphasis variants
+    high: RoleColors = ("#D4745E", "#853D2D", "#E8DCC4")
+    low: RoleColors = ("#F3EFE8", "#B0B0A8", "#999999")
+
+    def role(self, name: str) -> RoleColors:
+        """Resolve a role to its (fill, stroke, text) triple."""
+        if name == "title":
+            return (None, "transparent", self.title_color)
+        if name == "subtitle":
+            return (None, "transparent", self.subtitle_color)
+        if name == "caption":
+            return (None, "transparent", self.caption_color)
+        if name == "annotation":
+            return (None, "transparent", self.annotation_color)
+        if name == "start":
+            return self.start
+        if name == "end":
+            return self.end
+        if name == "decision":
+            return self.decision
+        if name == "high":
+            return self.high
+        if name == "low":
+            return self.low
+        return self.process
+
+
+# ---------------------------------------------------------------------------
+# Built-in palettes
+# ---------------------------------------------------------------------------
+
+# Default warm-earth aesthetic (terracotta/sage/sand).
+_TERRACOTTA = Palette(
+    name="terracotta",
+    canvas="#F9F7F4",
+    title_color="#2C2C2C",
+    subtitle_color="#D4745E",
+    caption_color="#757575",
+    annotation_color="#757575",
+    start=("#FCF0ED", "#A84F3B", "#2C2C2C"),
+    end=("#E3E8DF", "#485240", "#2C2C2C"),
+    process=("#F3EFE8", "#757575", "#2C2C2C"),
+    decision=("#FDF8F0", "#5E422A", "#2C2C2C"),
+    high=("#D4745E", "#853D2D", "#FFFFFF"),
+    low=("#F3EFE8", "#B0B0A8", "#999999"),
+)
+
+# Cool blues, calm and technical.
+_OCEAN = Palette(
+    name="ocean",
+    canvas="#F4F7FA",
+    title_color="#0F2A40",
+    subtitle_color="#1565C0",
+    caption_color="#5A6F80",
+    annotation_color="#5A6F80",
+    start=("#E3F2FD", "#1565C0", "#0D2C4A"),
+    end=("#E0F7F4", "#00796B", "#003D34"),
+    process=("#ECEFF4", "#5A6F80", "#1B2733"),
+    decision=("#FFF8E1", "#F9A825", "#5C3A00"),
+    high=("#1976D2", "#0D47A1", "#FFFFFF"),
+    low=("#ECEFF4", "#B0BEC5", "#90A4AE"),
+)
+
+# Verdant greens with yellow-orange accents — natural, organic.
+_FOREST = Palette(
+    name="forest",
+    canvas="#F6F8F2",
+    title_color="#1B3A1B",
+    subtitle_color="#2E7D32",
+    caption_color="#5D6E5A",
+    annotation_color="#5D6E5A",
+    start=("#E8F5E9", "#2E7D32", "#1B3A1B"),
+    end=("#FFF8E1", "#9C7A1F", "#4F3A06"),
+    process=("#EEF1E8", "#5D6E5A", "#1F2E1F"),
+    decision=("#FFEFC2", "#C77800", "#5C3A00"),
+    high=("#388E3C", "#1B5E20", "#FFFFFF"),
+    low=("#EEF1E8", "#BDBDBD", "#9E9E9E"),
+)
+
+# Warm orange/red/yellow — energetic, bold.
+_SUNSET = Palette(
+    name="sunset",
+    canvas="#FFF8F2",
+    title_color="#3E1F0E",
+    subtitle_color="#E64A19",
+    caption_color="#8C5A4A",
+    annotation_color="#8C5A4A",
+    start=("#FFE0B2", "#EF6C00", "#3E1F0E"),
+    end=("#FCE4EC", "#AD1457", "#4A0F2C"),
+    process=("#FFF3E0", "#8C5A4A", "#3E1F0E"),
+    decision=("#FFF9C4", "#F57F17", "#4A3500"),
+    high=("#E64A19", "#BF360C", "#FFFFFF"),
+    low=("#FFF3E0", "#D7CCC8", "#A1887F"),
+)
+
+# Purple/pink palette — playful, creative.
+_GRAPE = Palette(
+    name="grape",
+    canvas="#FAF5FC",
+    title_color="#311B45",
+    subtitle_color="#7B1FA2",
+    caption_color="#7A6A85",
+    annotation_color="#7A6A85",
+    start=("#F3E5F5", "#7B1FA2", "#311B45"),
+    end=("#E1F5FE", "#0277BD", "#0D2C4A"),
+    process=("#F3EBF7", "#7A6A85", "#2C1F3D"),
+    decision=("#FFF8E1", "#C77800", "#5C3A00"),
+    high=("#9C27B0", "#4A148C", "#FFFFFF"),
+    low=("#F3EBF7", "#CFC2D9", "#9E8FAB"),
+)
+
+# All-grayscale, minimal, editorial.
+_MONOCHROME = Palette(
+    name="monochrome",
+    canvas="#FAFAFA",
+    title_color="#1A1A1A",
+    subtitle_color="#424242",
+    caption_color="#757575",
+    annotation_color="#757575",
+    start=("#FFFFFF", "#1A1A1A", "#1A1A1A"),
+    end=("#E0E0E0", "#424242", "#1A1A1A"),
+    process=("#F5F5F5", "#757575", "#1A1A1A"),
+    decision=("#EEEEEE", "#212121", "#1A1A1A"),
+    high=("#212121", "#000000", "#FFFFFF"),
+    low=("#F5F5F5", "#BDBDBD", "#9E9E9E"),
+)
+
+# Soft pastels, gentle and approachable.
+_PASTEL = Palette(
+    name="pastel",
+    canvas="#FDFBF7",
+    title_color="#3A3A3A",
+    subtitle_color="#A66E92",
+    caption_color="#8C8377",
+    annotation_color="#8C8377",
+    start=("#FCE4EC", "#C2185B", "#3A1F2E"),
+    end=("#C8E6C9", "#388E3C", "#1F3A22"),
+    process=("#FFF3E0", "#8C8377", "#3A3A3A"),
+    decision=("#E1F5FE", "#0288D1", "#0D2C4A"),
+    high=("#FFB74D", "#F57C00", "#3E1F0E"),
+    low=("#FFF3E0", "#D7CCC8", "#A1887F"),
+)
+
+# Vanilla / cream — soft warm neutrals.
+_VANILLA = Palette(
+    name="vanilla",
+    canvas="#FFFBF0",
+    title_color="#3E2C1B",
+    subtitle_color="#8C6A3F",
+    caption_color="#8C7A5A",
+    annotation_color="#8C7A5A",
+    start=("#FFF3D9", "#B8893E", "#3E2C1B"),
+    end=("#F0E8D8", "#5C4A2E", "#1F1A0E"),
+    process=("#FAF3E0", "#8C7A5A", "#3E2C1B"),
+    decision=("#FFE9B3", "#9C7A1F", "#4F3A06"),
+    high=("#D49E2C", "#8C5E0E", "#FFFFFF"),
+    low=("#FAF3E0", "#D4C8B0", "#A89878"),
+)
+
+# Dark variant of terracotta, used when dark=True with no theme set.
+_TERRACOTTA_DARK = Palette(
+    name="terracotta-dark",
+    canvas="#1A1A1A",
+    title_color="#E8DCC4",
+    subtitle_color="#D4745E",
+    caption_color="#8B8B8B",
+    annotation_color="#8B8B8B",
+    start=("#3D1F17", "#D4745E", "#E8DCC4"),
+    end=("#1E2B1E", "#8B9D83", "#E8DCC4"),
+    process=("#2C2C2C", "#8B8B8B", "#E8DCC4"),
+    decision=("#2E2214", "#D4A574", "#E8DCC4"),
+    high=("#853D2D", "#D4745E", "#E8DCC4"),
+    low=("#1A1A1A", "#555555", "#666666"),
+)
+
+# Dark variant of ocean.
+_OCEAN_DARK = Palette(
+    name="ocean-dark",
+    canvas="#0E1A26",
+    title_color="#E0F2FF",
+    subtitle_color="#64B5F6",
+    caption_color="#7A8C9C",
+    annotation_color="#7A8C9C",
+    start=("#0D2C4A", "#64B5F6", "#E0F2FF"),
+    end=("#003D34", "#4DB6AC", "#E0F2FF"),
+    process=("#1B2733", "#7A8C9C", "#E0F2FF"),
+    decision=("#3E2C00", "#FFB300", "#FFE082"),
+    high=("#1565C0", "#64B5F6", "#FFFFFF"),
+    low=("#1B2733", "#37474F", "#546E7A"),
+)
+
+# Registry — keys are case-insensitive.
+PALETTES: dict[str, Palette] = {
+    "default":     _TERRACOTTA,
+    "terracotta":  _TERRACOTTA,
+    "ocean":       _OCEAN,
+    "forest":      _FOREST,
+    "sunset":      _SUNSET,
+    "grape":       _GRAPE,
+    "monochrome":  _MONOCHROME,
+    "mono":        _MONOCHROME,
+    "pastel":      _PASTEL,
+    "vanilla":     _VANILLA,
+    # Aliases for back-compat with the old (mostly-broken) D2 theme names.
+    "earth":       _FOREST,
+    "cool":        _OCEAN,
+    "mixed":       _GRAPE,
+    "neutral":     _MONOCHROME,
+    # Dark variants (used when dark=True)
+    "dark":               _TERRACOTTA_DARK,
+    "terracotta-dark":    _TERRACOTTA_DARK,
+    "ocean-dark":         _OCEAN_DARK,
 }
 
-_ROLE_COLORS_DARK: dict[str, tuple[str | None, str, str]] = {
-    "title":      (None, "transparent", "#E8DCC4"),
-    "subtitle":   (None, "transparent", "#D4745E"),
-    "start":      ("#3D1F17", "#D4745E", "#E8DCC4"),
-    "end":        ("#1E2B1E", "#8B9D83", "#E8DCC4"),
-    "process":    ("#2C2C2C", "#8B8B8B", "#E8DCC4"),
-    "decision":   ("#2E2214", "#D4A574", "#E8DCC4"),
-    "annotation": (None, "transparent", "#8B8B8B"),
-    "caption":    (None, "transparent", "#8B8B8B"),
-}
 
-# Emphasis overrides fill/stroke
-_EMPHASIS_COLORS_LIGHT = {
-    "high": ("#D4745E", "#853D2D", "#E8DCC4"),  # terracotta (bold, stands out)
-    "low":  ("#F3EFE8", "#B0B0A8", "#999999"),   # faded neutral
-}
-_EMPHASIS_COLORS_DARK = {
-    "high": ("#853D2D", "#D4745E", "#E8DCC4"),
-    "low":  ("#1A1A1A", "#555555", "#666666"),
-}
+def _resolve_palette(theme: str | Palette | dict | None, dark: bool) -> Palette:
+    """Turn whatever the user passed into a concrete Palette."""
+    # Custom Palette object passed directly.
+    if isinstance(theme, Palette):
+        return theme
+
+    # Dict — treat as a partial override on top of the default light/dark base.
+    if isinstance(theme, dict):
+        base = _TERRACOTTA_DARK if dark else _TERRACOTTA
+        # dataclasses.replace would require importing replace; build manually
+        # to allow nested triples to be partially overridden later if needed.
+        from dataclasses import replace
+        return replace(base, **{k: v for k, v in theme.items() if hasattr(base, k)})
+
+    # String name (or None → default).
+    name = (theme or "default").lower()
+    if dark:
+        # Look for a dark variant first, fall back to the named palette,
+        # then fall back to the dark default.
+        if f"{name}-dark" in PALETTES:
+            return PALETTES[f"{name}-dark"]
+        if name in PALETTES:
+            base = PALETTES[name]
+            # Auto-darken: swap canvas + text colors for a quick dark variant
+            # of any light palette the user picked. For best results add an
+            # explicit "<name>-dark" entry above.
+            return _auto_darken(base)
+        return _TERRACOTTA_DARK
+
+    return PALETTES.get(name, _TERRACOTTA)
+
+
+def _auto_darken(p: Palette) -> Palette:
+    """Best-effort dark-mode version of a light palette.
+
+    Inverts the canvas, swaps fills→strokes and lightens text. Not as good
+    as a hand-tuned dark palette, but lets every named theme work in dark
+    mode without duplicating every entry.
+    """
+    from dataclasses import replace
+
+    def darken(triple: RoleColors) -> RoleColors:
+        fill, stroke, _text = triple
+        # Use the light stroke as the dark fill base, and the light fill
+        # (often pale) as the dark stroke (it'll read as a soft outline).
+        new_fill = stroke if stroke != "transparent" else "#2C2C2C"
+        new_stroke = fill or "#8B8B8B"
+        return (new_fill, new_stroke, "#F5F0E6")
+
+    return replace(
+        p,
+        name=f"{p.name}-dark",
+        canvas="#1A1A1A",
+        title_color="#F5F0E6",
+        subtitle_color=p.subtitle_color,
+        caption_color="#8B8B8B",
+        annotation_color="#8B8B8B",
+        start=darken(p.start),
+        end=darken(p.end),
+        process=darken(p.process),
+        decision=darken(p.decision),
+        high=(p.high[1], p.high[0] or "#FFFFFF", "#FFFFFF"),
+        low=("#1A1A1A", "#555555", "#666666"),
+    )
 
 # Role → Excalidraw shape type
 _ROLE_SHAPE: dict[str, str] = {
@@ -169,30 +459,35 @@ class Scene:
         s.save("output.excalidraw")
     """
 
-    # D2 theme IDs: https://d2lang.com/tour/themes
-    THEMES = {
-        "default": 0,
-        "neutral": 1,
-        "earth": 3,
-        "grape": 4,
-        "ocean": 6,
-        "vanilla": 5,
-        "cool": 102,
-        "mixed": 104,
-        "dark": 200,
-    }
+    # Names of built-in palettes; keep here for autocomplete / discoverability.
+    AVAILABLE_THEMES = tuple(sorted(PALETTES.keys()))
 
     def __init__(
         self,
         width: float = 1200,
         height: float = 800,
         dark: bool = False,
-        theme: str = "default",
+        theme: "str | Palette | dict | None" = "default",
     ):
+        """Create a Scene.
+
+        Args:
+            width, height: canvas size in pixels (Excalidraw output only;
+                D2 output ignores these and auto-sizes).
+            dark: switch to a dark canvas + inverted text.
+            theme: a built-in palette name (see ``Scene.AVAILABLE_THEMES``),
+                a :class:`Palette` object, or a dict of overrides on the
+                default palette.
+        """
         self.width = width
         self.height = height
         self.dark = dark
-        self.theme = theme
+        # Keep the original arg around for repr/debugging; the resolved
+        # Palette instance is what the renderer reads from.
+        self.theme = theme if isinstance(theme, str) else (
+            theme.name if isinstance(theme, Palette) else "custom"
+        )
+        self.palette: Palette = _resolve_palette(theme, dark)
         self._elements: dict[str, Element] = {}
         self._connections: list[Connection] = []
         self._annotations: list[Annotation] = []
@@ -201,9 +496,13 @@ class Scene:
 
     def _auto_id(self, text: str) -> str:
         """Generate a stable ID from text."""
+        # D2 treats `:`, `.`, `(`, `)`, `{`, `}` as syntax — strip them so the
+        # generated id is a single leaf node, not a parent.child path.
+        import re
         clean = text.lower().replace(" ", "_").replace("\n", "_")
+        clean = re.sub(r"[^a-z0-9_]", "", clean)
         # Truncate and ensure uniqueness
-        base = clean[:30]
+        base = clean[:30] or "elem"
         if base not in self._elements:
             return base
         self._id_counter += 1
@@ -606,7 +905,7 @@ class Scene:
         for ann in self._annotations:
             elements.append(self._make_text(
                 ann.id, ann.text, ann.x, ann.y, ann.width, ann.height,
-                color=_ROLE_COLORS_DARK["annotation"][2] if self.dark else _ROLE_COLORS_LIGHT["annotation"][2],
+                color=self.palette.annotation_color,
                 font_size=14, align="left",
             ))
 
@@ -709,7 +1008,7 @@ class Scene:
                 lines.append("  shape: text")
                 lines.append("  style.font-size: 28")
                 lines.append("  style.bold: true")
-                lines.append(f'  style.font-color: "{_ROLE_COLORS_DARK["title"][2] if self.dark else _ROLE_COLORS_LIGHT["title"][2]}"')
+                lines.append(f'  style.font-color: "{self.palette.title_color}"')
                 lines.append("  near: top-center")
                 lines.append("}")
                 lines.append("")
@@ -718,7 +1017,7 @@ class Scene:
                 lines.append("  shape: text")
                 lines.append("  style.font-size: 20")
                 lines.append("  style.bold: true")
-                lines.append(f'  style.font-color: "{_ROLE_COLORS_DARK["subtitle"][2] if self.dark else _ROLE_COLORS_LIGHT["subtitle"][2]}"')
+                lines.append(f'  style.font-color: "{self.palette.subtitle_color}"')
                 lines.append("  near: top-center")
                 lines.append("}")
                 lines.append("")
@@ -726,7 +1025,7 @@ class Scene:
                 lines.append(f"{elem.id}: {elem.text} {{")
                 lines.append("  shape: text")
                 lines.append("  style.font-size: 13")
-                lines.append(f'  style.font-color: "{_ROLE_COLORS_DARK["caption"][2] if self.dark else _ROLE_COLORS_LIGHT["caption"][2]}"')
+                lines.append(f'  style.font-color: "{self.palette.caption_color}"')
                 lines.append("  near: bottom-center")
                 lines.append("}")
                 lines.append("")
@@ -766,7 +1065,7 @@ class Scene:
         # Annotations: connected to targets with subtle dashed lines
         for ann in self._annotations:
             label = ann.text.replace("\n", "\\n")
-            ann_color = _ROLE_COLORS_DARK["annotation"][2] if self.dark else _ROLE_COLORS_LIGHT["annotation"][2]
+            ann_color = self.palette.annotation_color
             lines.append(f"{ann.id}: {label} {{")
             lines.append("  shape: text")
             lines.append("  style.font-size: 13")
@@ -892,7 +1191,7 @@ class Scene:
         import tempfile
         import os
 
-        d2_path = self._ensure_d2()
+        d2_binary = self._ensure_d2()
 
         d2_source = self.to_d2()
 
@@ -900,27 +1199,31 @@ class Scene:
             mode="w", suffix=".d2", prefix="plotcraft_", delete=False,
         ) as f:
             f.write(d2_source)
-            d2_path = f.name
+            d2_source_path = f.name
 
         try:
+            # We don't pass D2's --theme: PlotCraft sets explicit
+            # style.fill / style.stroke / style.font-color in the D2 source
+            # from the active Palette, which would override D2 themes anyway.
+            # Dark mode uses --theme 200 only as a fallback for any element
+            # PlotCraft didn't style explicitly (e.g. the canvas backdrop
+            # if the user is rendering to PNG via D2 directly).
             cmd = [
-                d2_path,
+                d2_binary,
                 "--sketch",
                 "--layout", "dagre",
                 "--pad", "60",
             ]
-            theme_id = self.THEMES.get(self.theme, 0)
-            if self.dark and theme_id < 100:
-                theme_id = 200  # Force dark theme
-            cmd.extend(["--theme", str(theme_id)])
+            if self.dark:
+                cmd.extend(["--theme", "200"])
 
-            cmd.extend([d2_path, output_path])
+            cmd.extend([d2_source_path, output_path])
 
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
                 raise RuntimeError(f"D2 rendering failed: {result.stderr}")
         finally:
-            os.unlink(d2_path)
+            os.unlink(d2_source_path)
 
     # ------------------------------------------------------------------
     # Element builders
@@ -930,13 +1233,10 @@ class Scene:
         return zlib.adler32(elem_id.encode())
 
     def _get_colors(self, elem: Element) -> tuple[str | None, str, str]:
-        """Get (fill, stroke, text_color) for an element."""
-        palette = _ROLE_COLORS_DARK if self.dark else _ROLE_COLORS_LIGHT
-        emphasis_palette = _EMPHASIS_COLORS_DARK if self.dark else _EMPHASIS_COLORS_LIGHT
-
-        if elem.emphasis in emphasis_palette and elem.role not in ("title", "subtitle", "caption"):
-            return emphasis_palette[elem.emphasis]
-        return palette.get(elem.role, palette["process"])
+        """Get (fill, stroke, text_color) for an element from the active palette."""
+        if elem.emphasis in ("high", "low") and elem.role not in ("title", "subtitle", "caption"):
+            return self.palette.role(elem.emphasis)
+        return self.palette.role(elem.role)
 
     def _make_shape(
         self, elem_id: str, shape_type: str,

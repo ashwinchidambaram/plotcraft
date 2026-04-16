@@ -1,8 +1,8 @@
 """PlotCraft — AI-friendly diagram engine with D2 rendering and spatial compositions."""
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
-from plotcraft.scene import Scene
+from plotcraft.scene import Scene, Palette, PALETTES
 from plotcraft.spatial import Canvas
 from plotcraft.templates import (
     Pipeline,
@@ -17,6 +17,9 @@ from plotcraft.templates import (
 __all__ = [
     "Scene",
     "Canvas",
+    # Color customization
+    "Palette",
+    "PALETTES",
     # Templates (recommended for small models)
     "Pipeline",
     "DecisionTree",
