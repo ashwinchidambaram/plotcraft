@@ -1,184 +1,289 @@
 # PlotCraft
 
-**Better diagrams from your AI.** Describe what you want in Python, get a polished hand-drawn diagram back.
+> Your AI is great at writing. It's great at coding. It is **catastrophically bad at diagrams**.
+> Crooked boxes. Arrows through letters. Tiny grey labels.
+> PlotCraft fixes that.
 
 <p align="center">
-  <img src="examples/renders/compiler_pipeline.png" alt="How a compiler works" width="90%" />
+  <img src="examples/renders/neural_network_learning.png" alt="How a neural network learns" width="75%" />
 </p>
 
-<p align="center">
-  <img src="examples/renders/neural_network_learning.png" alt="How a neural network learns" width="90%" />
-</p>
+That diagram came from a single sentence: *"draw me how a neural network learns."* No design tools. No fiddling with arrows. No swearing at PowerPoint.
 
-<p align="center">
-  <img src="examples/renders/startup_death.png" alt="How startups die" width="90%" />
-</p>
+---
 
-## Why?
+## What is this, exactly?
 
-AI-generated diagrams usually look terrible — misaligned text, arrows through shapes, everything the same size. PlotCraft fixes this with two purpose-built modes:
+PlotCraft is a tool that lets you **just ask for a diagram in plain English** and get a polished, hand-drawn one back. You don't open Figma. You don't drag boxes around. You type what you want, and the diagram appears.
 
-- **Scene API** for flowcharts → renders via [D2](https://d2lang.com)
-- **Canvas API** for spatial compositions → renders via Excalidraw + Playwright
+Think of it like having a designer who only does whiteboard sketches, sitting next to your AI assistant, ready to draw anything you describe.
 
-## Install
+---
+
+## How it works (the short version)
+
+PlotCraft is built specifically for **[Claude Code](https://claude.com/claude-code)** — Anthropic's coding assistant that runs in your terminal. You install Claude Code once, drop PlotCraft's "skill" folder into the right place, and from then on you can just say things like:
+
+> *"Draw me a diagram showing how my morning routine works."*
+>
+> *"Make a flowchart of how a credit card payment is processed."*
+>
+> *"Show me the difference between renting and buying a house."*
+
+…and Claude knows exactly how to use PlotCraft to make a beautiful diagram for you.
+
+> **Heads up:** Today PlotCraft is built and tuned specifically for Claude Code. Support for other AI assistants (ChatGPT, Cursor, Gemini, local models like Ollama) is on the backlog — see [Roadmap](#roadmap--whats-coming-next).
+
+---
+
+## Get started in 60 seconds
+
+You'll need:
+
+1. **A Mac or Linux computer** (Windows support coming soon)
+2. **[Claude Code](https://claude.com/claude-code) installed** — Anthropic has a one-line installer
+3. **Python 3.12 or newer** — most computers already have it; if not, download from [python.org](https://www.python.org)
+
+Then, in your terminal:
 
 ```bash
+# 1. Install PlotCraft
 pip install plotcraft
+
+# 2. Install the diagram skill into Claude Code
+git clone https://github.com/ashwinchidambaram/plotcraft
+cp -r plotcraft/skills/plotcraft-diagram ~/.claude/skills/
 ```
 
-That's it. PlotCraft auto-installs everything else on first use:
+That's it. Now open Claude Code and ask it to draw something.
 
-- **Chromium** (~150MB) — auto-installed via Playwright when you first render an Excalidraw diagram
-- **D2** — auto-installed via the official installer when you first render a Scene diagram (macOS/Linux)
+> The first time you make a diagram, PlotCraft will quietly download the two helpers it needs (a layout engine called D2, and a tiny browser called Chromium for the fancy spatial diagrams). After that, everything is local and instant.
 
-Manual install commands (if auto-install fails or you prefer explicit setup):
+---
 
-```bash
-playwright install chromium     # for Canvas API rendering
-brew install d2                 # for Scene API rendering (macOS)
-```
+## Things you can ask Claude to draw
 
-## Quick Start
+Copy any prompt below into Claude Code with the skill installed. Each one produces a polished diagram in seconds.
 
-### Flowchart with Scene API
+### Step-by-step processes
 
-```python
-from plotcraft import Scene
-
-s = Scene()
-s.add("How a neural network learns", role="title")
-s.add("Training Data", role="start")
-s.add("Forward Pass", role="process", emphasis="high")
-s.add("Compute Loss", role="decision")
-s.add("Backpropagation", role="process", size="large", emphasis="high")
-s.add("Update Weights", role="process")
-s.add("Trained Model", role="end", size="large")
-
-s.connect("Training Data", "Forward Pass")
-s.connect("Forward Pass", "Compute Loss", label="predictions")
-s.connect("Compute Loss", "Backpropagation", label="error signal")
-s.connect("Backpropagation", "Update Weights", label="gradients")
-s.connect("Update Weights", "Forward Pass", label="next batch", style="dashed")
-
-s.annotate("Chain rule through every layer", near="Backpropagation")
-s.add("Repeat until the loss stops decreasing", role="caption")
-
-s.layout("top_down")
-s.save("neural_net.png")  # uses D2
-```
-
-### Spatial composition with Canvas API
-
-```python
-from plotcraft import Canvas
-
-c = Canvas(1600, 650)
-c.title("Slime Mold: Progressive Pruning",
-    "Physarum optimizes by reinforcing paths to food",
-    mapping="food = test example | vein = candidate prompt")
-
-p1 = c.panel("(a)", "Explore: 20 candidates")
-p1.blob(0, 0)
-for angle in range(0, 360, 18):
-    import math
-    p1.branch(math.radians(angle), 80, 2.5, color="#D4A017")
-
-p2 = c.panel("(b)", "Prune: keep 10")
-# ...
-
-c.arrow_between(p1, p2, label="keep 10")
-c.legend([("Food", "#FEF3C7", "#D97706"), ("Vein", "#FCD34D", "#B8860B")])
-c.save("slime_mold.png")  # uses Playwright
-```
-
-## Themes
+> *"Show me how the immune system fights an infection."*
 
 <p align="center">
-  <img src="examples/renders/theme_default.png" alt="Default" width="30%" />
-  <img src="examples/renders/theme_earth.png" alt="Earth" width="30%" />
-  <img src="examples/renders/theme_grape.png" alt="Grape" width="30%" />
+  <img src="examples/renders/readme_pipeline.png" alt="Immune system pipeline" width="65%" />
+</p>
+
+### Decisions
+
+> *"Are you out of Claude Code usage? Show the options."*
+
+<p align="center">
+  <img src="examples/renders/readme_claude_meme.png" alt="Out of Claude Code usage" width="60%" />
+</p>
+
+### Comparisons
+
+> *"Compare iPhone vs Android side by side, three points each."*
+
+<p align="center">
+  <img src="examples/renders/readme_comparison.png" alt="iPhone vs Android" width="40%" />
+</p>
+
+### Feedback loops
+
+> *"Visualize the writer's revision loop — draft, get feedback, revise, repeat."*
+
+<p align="center">
+  <img src="examples/renders/readme_cycle.png" alt="Writer revision loop" width="40%" />
+</p>
+
+### One-to-many flows
+
+> *"What happens when I press send on an email? Show every place it goes."*
+
+<p align="center">
+  <img src="examples/renders/readme_fanout.png" alt="Email fan-out" width="65%" />
+</p>
+
+### Multi-tier systems
+
+> *"Show me how a restaurant works: front of house, kitchen, suppliers."*
+
+<p align="center">
+  <img src="examples/renders/readme_architecture.png" alt="Restaurant architecture" width="35%" />
+</p>
+
+### Timelines
+
+> *"Make a timeline of a product launch year — Q1 research, Q2 build, Q3 beta, Q4 launch."*
+
+<p align="center">
+  <img src="examples/renders/readme_timeline.png" alt="Product launch timeline" width="65%" />
+</p>
+
+Don't like the result? Just say *"use blue colors"* or *"emphasize the second step"* or *"make it darker"* and Claude will regenerate.
+
+---
+
+## When templates aren't enough
+
+For richer concepts — branching paths, parallel flows, feedback loops, scientific systems — Claude reaches for the **Scene API**. Same conversation, more elaborate output. Try prompts like:
+
+> *"Diagram the life cycle of a star, including what happens to high-mass and low-mass stars."*
+
+<p align="center">
+  <img src="examples/renders/readme_star_lifecycle.png" alt="Life cycle of a star" width="55%" />
+</p>
+
+> *"Show me the water cycle — evaporation, transpiration, precipitation, runoff, all of it."*
+
+<p align="center">
+  <img src="examples/renders/readme_water_cycle.png" alt="The water cycle" width="60%" />
+</p>
+
+> *"Explain how TikTok's recommendation algorithm decides what to show me."*
+
+<p align="center">
+  <img src="examples/renders/readme_tiktok.png" alt="TikTok algorithm" width="65%" />
+</p>
+
+And for genuinely custom infographics — slime molds, tournament brackets, evolutionary trees — there's a **Canvas API** that gives Claude pixel-precise spatial control. See the [GEPA project](https://github.com/ashwinchidambaram/gepa-mutations) for examples in the wild.
+
+---
+
+## Pick a vibe — eight color palettes built in
+
+Every diagram ships in your choice of palette. You don't need to know color theory, just say *"use the ocean theme"*:
+
+<p align="center">
+  <img src="examples/renders/template_theme_default.png" alt="terracotta" width="24%" />
+  <img src="examples/renders/template_theme_ocean.png" alt="ocean" width="24%" />
+  <img src="examples/renders/template_theme_forest.png" alt="forest" width="24%" />
+  <img src="examples/renders/template_theme_sunset.png" alt="sunset" width="24%" />
 </p>
 <p align="center">
-  <img src="examples/renders/theme_ocean.png" alt="Ocean" width="30%" />
-  <img src="examples/renders/theme_cool.png" alt="Cool" width="30%" />
-  <img src="examples/renders/theme_mixed.png" alt="Mixed" width="30%" />
+  <img src="examples/renders/template_theme_grape.png" alt="grape" width="24%" />
+  <img src="examples/renders/template_theme_monochrome.png" alt="monochrome" width="24%" />
+  <img src="examples/renders/template_theme_pastel.png" alt="pastel" width="24%" />
+  <img src="examples/renders/template_theme_vanilla.png" alt="vanilla" width="24%" />
 </p>
 
-```python
-Scene(theme="default")   Scene(theme="earth")    Scene(theme="grape")
-Scene(theme="ocean")     Scene(theme="vanilla")  Scene(theme="cool")
-Scene(theme="mixed")     Scene(dark=True)
-```
+Built-in palettes: **default** (terracotta), **ocean**, **forest**, **sunset**, **grape**, **monochrome**, **pastel**, **vanilla**. Plus a dark mode for any of them.
 
-## API
+### Want your own brand colors?
 
-### Scene (flowcharts)
+Just tell Claude:
 
-```python
-from plotcraft import Scene
+> *"Use these colors: #FF6B35 for highlights, #0066AA for endings, white background."*
 
-s = Scene(theme="default", dark=False)
+And it'll build you a custom palette and use it. Save the palette once, reuse it on every diagram you make.
 
-s.add(text, role="process", size="medium", emphasis="normal")
-# Roles: title, subtitle, start, end, process, decision, caption
-# Sizes: small, medium, large, hero
-# Emphasis: low, normal, high
+---
 
-s.connect(source, target, label=None, style="solid", weight="normal")
-s.annotate(text, near=element_text)
+## For developers — yes, you can use it directly
 
-s.layout("pipeline")  # pipeline, top_down, fan_out, convergence, cycle, decision_tree
-s.save("diagram.png")
-```
-
-### Canvas (spatial compositions)
+If you want to skip Claude Code and call PlotCraft from your own Python script, you can. The same templates work as a fluent builder:
 
 ```python
-from plotcraft import Canvas
+from plotcraft import Pipeline
 
-c = Canvas(width=1600, height=650)
-c.title(main, subtitle="", mapping="")
-
-p = c.panel(label, title, radius=125, title_color="#374151")
-p.dot(dx, dy, r=8, fill="#FEF3C7", stroke="#D97706", label="ex17")
-p.circle(dx, dy, r, fill, stroke)
-p.blob(dx, dy, n=5, r=12)
-p.vein(dx1, dy1, dx2, dy2, width=3, color="#D4A017")
-p.branch(angle, length, width)
-p.leader(label, dx_label, dy_label, dx_target, dy_target)
-p.caption(text, extra_line="")
-
-c.arrow_between(p1, p2, label="next")
-c.legend([(label, fill, stroke), ...])
-c.footer(text)
-c.save("diagram.png")
+Pipeline("How HTTPS works") \
+    .step("You type a URL") \
+    .step("DNS Lookup") \
+    .step("TLS Handshake", emphasize=True) \
+    .step("Page Loads") \
+    .caption("Every request, in milliseconds") \
+    .save("https.png")
 ```
 
-## Render CLI
+Three layers of API depending on how much control you want:
 
-A standalone renderer ships with the package:
+- **Templates** — seven prebuilt diagram types, fluent builders, ~5 lines of code
+- **Scene API** — describe elements + connections, layout is automatic
+- **Canvas API** — pixel-precise spatial composition for custom infographics
+
+Full API reference is in [`skills/plotcraft-diagram/LLM-SKILL.md`](skills/plotcraft-diagram/LLM-SKILL.md). Design rules and best practices in [`docs/DESIGN_RULES.md`](docs/DESIGN_RULES.md).
+
+---
+
+## Roadmap — what's coming next
+
+PlotCraft today is great if you use Claude Code. Here's what's next.
+
+### v2: Support for other AI assistants
+Today, the skill format is Claude-specific. Coming soon:
+- **ChatGPT** — custom GPT + plugin
+- **Cursor** — `.cursorrules` integration
+- **Continue.dev / Cody** — extension support
+- **Gemini Code** — once their skill format stabilizes
+
+### v3: A local SLM that drives PlotCraft
+A small (~3B parameter) language model, fine-tuned specifically to translate plain English into PlotCraft template calls. Bundled with the package, runs locally via [llama.cpp](https://github.com/ggerganov/llama.cpp) or [Ollama](https://ollama.com).
 
 ```bash
-plotcraft-render path/to/diagram.excalidraw
-plotcraft-render diagram.excalidraw -o out.svg -f svg
+plotcraft sketch "show me how OAuth works"
+# → reasoning happens locally, on your machine
+# → PlotCraft renders the result
+# → you get a polished diagram, no API key, no network, no cloud
 ```
 
-## Design Rules
+**Why bother?**
+- **Privacy** — your diagrams never leave your machine
+- **Offline** — works on a plane or in a basement
+- **Free** — no per-render API cost
+- **Fast** — local inference is sub-second on an M-series Mac
 
-PlotCraft ships with [`docs/DESIGN_RULES.md`](docs/DESIGN_RULES.md) — a comprehensive guide for creating diagrams that look right on the first try. Spacing rules, arrow rules, text placement, pre-flight checklist, all learned from real iteration.
+The whole `SLM-SKILL.md` document is already structured around this — every template is a recipe a 3B model can reliably follow. The fine-tune is the missing piece.
+
+### Other things on the list
+- Windows support
+- More diagram types (sankey, swimlane, sequence diagrams)
+- A web playground (paste a prompt, see the diagram)
+- Animated diagrams (GIF / MP4 export)
+- An MCP server so any AI agent framework can use it
+
+If any of these sound fun to work on, [open an issue](https://github.com/ashwinchidambaram/plotcraft/issues) — I'd love collaborators.
+
+---
+
+## Built on the shoulders of giants
+
+PlotCraft is the assembly — these are the brilliant pieces that make it possible:
+
+| Tool | What it does for us |
+| --- | --- |
+| **[Claude Code](https://claude.com/claude-code)** by Anthropic | The AI assistant that actually drives PlotCraft. The whole skill system is what makes "just ask for a diagram" possible. |
+| **[D2](https://d2lang.com)** by Terrastruct | The layout engine and sketch-mode renderer behind every flowchart. Honestly the secret sauce. |
+| **[dagre](https://github.com/dagrejs/dagre)** | The graph-layout algorithm D2 uses to figure out where boxes go and how arrows route. |
+| **[Excalidraw](https://excalidraw.com)** | The hand-drawn JSON format powering the spatial diagrams, plus the renderer used by the Playwright pipeline. |
+| **[Playwright](https://playwright.dev)** by Microsoft | Headless Chromium for rendering Excalidraw diagrams to PNG and SVG. |
+| **[Hatchling](https://hatch.pypa.io/)** by the Hatch team | The Python build backend that bundles everything into one clean install. |
+| **[uv](https://docs.astral.sh/uv/)** by Astral | Package manager that makes Python development not painful. |
+
+Aesthetic inspiration from Figma's hand-drawn whiteboard mode, Edward Tufte's information design, and Dan Roam's *The Back of the Napkin*. The core belief is Tufte's: **diagrams should argue, not just display.**
+
+---
 
 ## Development
+
+If you want to hack on PlotCraft itself:
 
 ```bash
 git clone https://github.com/ashwinchidambaram/plotcraft
 cd plotcraft
 uv sync
-uv run pytest         # 25 tests
+uv run pytest         # 49 tests, all passing
+uv run python examples/test_all_templates.py  # render every template + theme
 ```
+
+PRs welcome — especially for new templates, new color palettes, Windows support, or anyone who wants to take a swing at the local-SLM future.
 
 ---
 
 <p align="center">
   <a href="https://github.com/ashwinchidambaram"><img src="assets/ac-blackhole-static.svg" alt="Built by Ashwin Chidambaram" width="260" /></a>
+</p>
+
+<p align="center">
+  <sub>MIT licensed. Built because I hate shitty diagrams.</sub>
 </p>

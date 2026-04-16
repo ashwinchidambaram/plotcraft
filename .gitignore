@@ -33,7 +33,7 @@ Thumbs.db
 *.excalidraw
 tests/visual/screenshots/
 
-# Tracked assets and example renders are explicitly added
-# (use git add -f for new renders)
-demo_pipeline.png
-demo_react_loop.png
+# Build outputs
+dist/
+*.whl
+*.tar.gz
